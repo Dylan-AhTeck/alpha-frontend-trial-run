@@ -2,17 +2,19 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Thread } from "@/components/assistant-ui/thread";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
+import { IdentitySelector } from "@/components/dashboard/identity-selector";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
 export default function DashboardPage() {
   const { isAuthenticated, user, logout } = useAuth();
   const router = useRouter();
+  const [selectedAgent, setSelectedAgent] = useState("dylan");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -37,18 +39,24 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  const handleAgentChange = (agentId: string) => {
+    // For now, we'll just update the state
+    // In the future, this could switch between different agent APIs
+    if (agentId !== "coming-soon") {
+      setSelectedAgent(agentId);
+    }
+  };
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <div className="h-screen bg-black text-white flex flex-col">
         {/* Header */}
         <header className="border-b border-white/10 bg-black/50 backdrop-blur-md p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-sm font-bold">D</span>
-              </div>
-              <h1 className="text-xl font-bold">Dylan IdentityX</h1>
-            </div>
+            <IdentitySelector
+              currentAgent={selectedAgent}
+              onAgentChange={handleAgentChange}
+            />
 
             <div className="flex items-center space-x-4">
               <span className="text-sm text-white/70">{user.email}</span>
