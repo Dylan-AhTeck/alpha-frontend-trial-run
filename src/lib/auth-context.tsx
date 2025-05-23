@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { AuthState, User } from "@/types";
+import { AuthState, User, Thread, Message } from "@/types";
 import { getDummyUsers } from "./dummy-data";
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!userToLogin) {
       // For any email not in dummy data, use the first non-admin user as template
       // but with the entered email (for demo purposes)
-      const templateUser = dummyUsers.find((u) => !u.isAdmin);
+      const templateUser = dummyUsers.find((u: User) => !u.isAdmin);
       if (templateUser && email !== "admin@alpha.com") {
         userToLogin = {
           ...templateUser,
@@ -75,8 +75,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("alpha-user");
   };
 
+  const addThread = (thread: Thread) => {
+    if (!user) return;
+
+    const updatedUser = {
+      ...user,
+      threads: [thread, ...user.threads], // Add new thread at the beginning
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem("alpha-user", JSON.stringify(updatedUser));
+  };
+
+  const updateThread = (threadId: string, messages: Message[]) => {
+    if (!user) return;
+
+    const updatedThreads = user.threads.map((thread) =>
+      thread.id === threadId
+        ? { ...thread, messages, lastUpdated: new Date() }
+        : thread
+    );
+
+    const updatedUser = {
+      ...user,
+      threads: updatedThreads.sort(
+        (a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime()
+      ),
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem("alpha-user", JSON.stringify(updatedUser));
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated, user, login, logout, addThread, updateThread }}
+    >
       {children}
     </AuthContext.Provider>
   );

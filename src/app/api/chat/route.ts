@@ -1,5 +1,12 @@
 import { NextRequest } from "next/server";
+import { streamText } from "ai";
 import { getDylanResponse } from "@/lib/dummy-data";
+
+// Type for assistant-ui content items
+interface ContentItem {
+  type: string;
+  text: string;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,11 +19,19 @@ export async function POST(req: NextRequest) {
       return new Response("Invalid message format", { status: 400 });
     }
 
-    // Ensure content is a string
-    const messageContent =
-      typeof lastMessage.content === "string"
-        ? lastMessage.content
-        : String(lastMessage.content || "");
+    // Handle both string content and array content from assistant-ui
+    let messageContent = "";
+    if (typeof lastMessage.content === "string") {
+      messageContent = lastMessage.content;
+    } else if (Array.isArray(lastMessage.content)) {
+      // assistant-ui sends content as array of objects like [{"type":"text","text":"Hi"}]
+      messageContent = lastMessage.content
+        .filter((item: ContentItem) => item.type === "text")
+        .map((item: ContentItem) => item.text)
+        .join(" ");
+    } else {
+      messageContent = String(lastMessage.content || "");
+    }
 
     if (!messageContent.trim()) {
       return new Response("Empty message content", { status: 400 });
@@ -25,27 +40,48 @@ export async function POST(req: NextRequest) {
     // Generate Dylan's response
     const dylanResponse = getDylanResponse(messageContent);
 
-    // Simulate typing delay
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000 + Math.random() * 2000)
-    );
+    // Mock provider for AI SDK
+    const mockProvider = {
+      doStream: async () => {
+        // Simulate delay
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500 + Math.random() * 1000)
+        );
 
-    // Return streaming response (simplified for demo)
-    const response = new Response(
-      JSON.stringify({
-        id: `msg-${Date.now()}`,
-        role: "assistant",
-        content: dylanResponse,
-        created_at: new Date().toISOString(),
-      }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+        return {
+          stream: new ReadableStream({
+            start(controller) {
+              // Send the complete text
+              controller.enqueue({
+                type: "text-delta",
+                textDelta: dylanResponse,
+              });
 
-    return response;
+              // Send finish event
+              controller.enqueue({
+                type: "finish",
+                finishReason: "stop",
+                usage: {
+                  promptTokens: messageContent.length,
+                  completionTokens: dylanResponse.split(" ").length,
+                },
+              });
+
+              controller.close();
+            },
+          }),
+          rawCall: { rawPrompt: messageContent, rawSettings: {} },
+          request: { body: JSON.stringify({ messages }) },
+        };
+      },
+    };
+
+    const result = await streamText({
+      model: mockProvider as any,
+      messages,
+    });
+
+    return result.toDataStreamResponse();
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });

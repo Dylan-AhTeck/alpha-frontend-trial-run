@@ -11,8 +11,8 @@ import { LogOut, MessageCircle, Plus } from "lucide-react";
 import { Thread as ThreadType } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 
-// Wrapper component that creates a fresh runtime
-function FreshThreadWrapper() {
+// Simple new thread interface without creating persisted thread
+function NewThreadInterface() {
   const runtime = useChatRuntime({
     api: "/api/chat",
   });
@@ -33,27 +33,94 @@ function FreshThreadWrapper() {
   );
 }
 
-export default function DashboardPage() {
-  const { isAuthenticated, user, logout } = useAuth();
-  const router = useRouter();
-  const [selectedThread, setSelectedThread] = useState<ThreadType | null>(null);
-  const [threadKey, setThreadKey] = useState(0);
-
+// Interactive chat component for new/active threads
+function InteractiveThread({ thread }: { thread: ThreadType }) {
   const runtime = useChatRuntime({
     api: "/api/chat",
   });
 
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <div className="flex-1 flex flex-col">
+        {/* Thread Header */}
+        <div className="border-b border-white/10 p-4 bg-black/30">
+          <h3 className="font-semibold">{thread.title}</h3>
+          <p className="text-sm text-white/60">
+            Live conversation with Dylan IdentityX
+          </p>
+        </div>
+        <Thread />
+      </div>
+    </AssistantRuntimeProvider>
+  );
+}
+
+// Read-only thread display for historical conversations
+function ReadOnlyThread({ thread }: { thread: ThreadType }) {
+  return (
+    <div className="flex-1 flex flex-col">
+      {/* Thread Header */}
+      <div className="border-b border-white/10 p-4 bg-black/30">
+        <h3 className="font-semibold">{thread.title}</h3>
+        <p className="text-sm text-white/60">
+          {thread.messages.length} messages • Last updated{" "}
+          {formatDistanceToNow(thread.lastUpdated, {
+            addSuffix: true,
+          })}
+        </p>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {thread.messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex ${
+              message.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
+            <div
+              className={`max-w-[80%] rounded-lg p-3 ${
+                message.role === "user"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white/10 text-white border border-white/20"
+              }`}
+            >
+              <p className="text-sm">{message.content}</p>
+              <p className="text-xs opacity-70 mt-1">
+                {message.timestamp.toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Message Input */}
+      <div className="border-t border-white/10 p-4 bg-black/30">
+        <p className="text-sm text-white/60 text-center">
+          This is a demo conversation. Click &quot;New Thread&quot; to start a
+          live chat with Dylan.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const { isAuthenticated, user, logout } = useAuth();
+  const router = useRouter();
+  const [selectedThread, setSelectedThread] = useState<ThreadType | null>(null);
+  const [isInNewThreadMode, setIsInNewThreadMode] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/login");
-      return;
     }
+  }, [isAuthenticated, router]);
 
-    // Auto-select first thread if available
-    if (user?.threads && user.threads.length > 0 && !selectedThread) {
-      setSelectedThread(user.threads[0]);
-    }
-  }, [isAuthenticated, router, user?.threads, selectedThread]);
+  const runtime = useChatRuntime({
+    api: "/api/chat",
+  });
 
   if (!isAuthenticated || !user) {
     return null; // Will redirect
@@ -65,10 +132,14 @@ export default function DashboardPage() {
   };
 
   const handleNewThread = () => {
-    // Reset the selected thread to show the assistant-ui interface
+    // Enter new thread mode without creating a persisted thread yet
+    setIsInNewThreadMode(true);
     setSelectedThread(null);
-    // Force a new runtime instance by changing the key
-    setThreadKey((prev) => prev + 1);
+  };
+
+  const handleSelectExistingThread = (thread: ThreadType) => {
+    setIsInNewThreadMode(false);
+    setSelectedThread(thread);
   };
 
   return (
@@ -134,7 +205,7 @@ export default function DashboardPage() {
                   {user.threads.map((thread) => (
                     <button
                       key={thread.id}
-                      onClick={() => setSelectedThread(thread)}
+                      onClick={() => handleSelectExistingThread(thread)}
                       className={`w-full text-left p-3 rounded-lg transition-all hover:bg-white/10 ${
                         selectedThread?.id === thread.id
                           ? "bg-white/20 border border-white/30"
@@ -172,56 +243,19 @@ export default function DashboardPage() {
 
           {/* Chat Interface */}
           <div className="flex-1 flex flex-col">
-            {selectedThread ? (
-              <div className="flex-1 flex flex-col">
-                {/* Thread Header */}
-                <div className="border-b border-white/10 p-4 bg-black/30">
-                  <h3 className="font-semibold">{selectedThread.title}</h3>
-                  <p className="text-sm text-white/60">
-                    {selectedThread.messages.length} messages • Last updated{" "}
-                    {formatDistanceToNow(selectedThread.lastUpdated, {
-                      addSuffix: true,
-                    })}
-                  </p>
-                </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {selectedThread.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${
-                        message.role === "user"
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          message.role === "user"
-                            ? "bg-blue-600 text-white"
-                            : "bg-white/10 text-white border border-white/20"
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Message Input */}
-                <div className="border-t border-white/10 p-4 bg-black/30">
-                  <p className="text-sm text-white/60 text-center">
-                    This is a demo conversation. Click &quot;New Thread&quot; to
-                    start a live chat with Dylan.
-                  </p>
-                </div>
-              </div>
+            {isInNewThreadMode ? (
+              // Show new thread interface (not persisted until first message)
+              <NewThreadInterface />
+            ) : selectedThread ? (
+              // Show interactive thread for new threads, read-only for existing threads with messages
+              selectedThread.messages.length === 0 ? (
+                <InteractiveThread thread={selectedThread} />
+              ) : (
+                <ReadOnlyThread thread={selectedThread} />
+              )
             ) : (
-              <FreshThreadWrapper key={threadKey} />
+              // Default view (fallback)
+              <NewThreadInterface />
             )}
           </div>
         </div>

@@ -26,4 +26,6 @@ export interface AuthState {
   user: User | null;
   login: (email: string) => Promise<void>;
   logout: () => void;
+  addThread: (thread: Thread) => void;
+  updateThread: (threadId: string, messages: Message[]) => void;
 }
