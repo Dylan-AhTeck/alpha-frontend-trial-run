@@ -7,6 +7,7 @@ import {
   ThreadPrimitive,
 } from "@assistant-ui/react";
 import type { FC } from "react";
+import { useEffect, useRef } from "react";
 import {
   ArrowDownIcon,
   CheckIcon,
@@ -20,18 +21,25 @@ import {
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 
 export const Thread: FC = () => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  });
+
   return (
     <ThreadPrimitive.Root
-      className="bg-background box-border flex h-full flex-col overflow-hidden"
+      className="bg-background box-border flex h-full flex-col"
       style={{
         ["--thread-max-width" as string]: "42rem",
       }}
     >
-      <ThreadPrimitive.Viewport className="flex h-full flex-col items-center overflow-y-scroll scroll-smooth bg-inherit px-4 pt-8">
+      {/* Scrollable Messages Area */}
+      <ThreadPrimitive.Viewport className="flex-1 flex flex-col items-center overflow-y-auto scroll-smooth bg-inherit px-4 pt-8">
         <ThreadWelcome />
 
         <ThreadPrimitive.Messages
@@ -42,15 +50,21 @@ export const Thread: FC = () => {
           }}
         />
 
+        {/* Auto-scroll anchor */}
+        <div ref={messagesEndRef} />
+
         <ThreadPrimitive.If empty={false}>
           <div className="min-h-8 flex-grow" />
         </ThreadPrimitive.If>
+      </ThreadPrimitive.Viewport>
 
-        <div className="sticky bottom-0 mt-3 flex w-full max-w-[var(--thread-max-width)] flex-col items-center justify-end rounded-t-lg bg-inherit pb-4">
+      {/* Fixed Input Area at Bottom */}
+      <div className="flex-shrink-0 mt-3 flex w-full flex-col items-center justify-end bg-inherit pb-6 px-4">
+        <div className="w-full max-w-[var(--thread-max-width)] relative">
           <ThreadScrollToBottom />
           <Composer />
         </div>
-      </ThreadPrimitive.Viewport>
+      </div>
     </ThreadPrimitive.Root>
   );
 };
@@ -61,7 +75,7 @@ const ThreadScrollToBottom: FC = () => {
       <TooltipIconButton
         tooltip="Scroll to bottom"
         variant="outline"
-        className="absolute -top-8 rounded-full disabled:invisible"
+        className="absolute -top-12 right-4 rounded-full disabled:invisible"
       >
         <ArrowDownIcon />
       </TooltipIconButton>
