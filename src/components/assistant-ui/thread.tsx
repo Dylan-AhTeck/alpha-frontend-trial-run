@@ -5,6 +5,7 @@ import {
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  useThread,
 } from "@assistant-ui/react";
 import type { FC } from "react";
 import { useEffect, useRef } from "react";
@@ -38,6 +39,9 @@ export const Thread: FC = () => {
         ["--thread-max-width" as string]: "42rem",
       }}
     >
+      {/* Thread Title Header */}
+      <ThreadTitle />
+
       {/* Scrollable Messages Area */}
       <ThreadPrimitive.Viewport className="flex-1 flex flex-col items-center overflow-y-auto scroll-smooth bg-inherit px-4 pt-8">
         <ThreadWelcome />
@@ -66,6 +70,37 @@ export const Thread: FC = () => {
         </div>
       </div>
     </ThreadPrimitive.Root>
+  );
+};
+
+const ThreadTitle: FC = () => {
+  const messages = useThread((t) => t.messages);
+  const isEmpty = messages.length === 0;
+
+  // Extract title from first message content, similar to LangChain approach
+  const firstMessage = messages[0];
+  const firstMessageContent = firstMessage?.content?.[0];
+  const extractedTitle =
+    firstMessageContent?.type === "text" ? firstMessageContent.text : null;
+
+  // Truncate long titles and provide fallback
+  const threadTitle = extractedTitle
+    ? extractedTitle.length > 50
+      ? extractedTitle.substring(0, 50) + "..."
+      : extractedTitle
+    : "Chat with Dylan IdentityX";
+
+  return (
+    <div className="border-b border-white/10 bg-black/30 backdrop-blur-sm px-6 py-4">
+      <div className="flex flex-col">
+        <h1 className="text-xl font-semibold text-white">
+          {isEmpty ? "New Chat with Dylan IdentityX" : threadTitle}
+        </h1>
+        <p className="text-sm text-white/60 mt-1">
+          Start a live conversation with Dylan
+        </p>
+      </div>
+    </div>
   );
 };
 
