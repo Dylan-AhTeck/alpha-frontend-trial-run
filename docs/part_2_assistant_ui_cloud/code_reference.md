@@ -1,75 +1,78 @@
-# **Detailed Implementation Plan: FastAPI Backend + Assistant UI Cloud Integration**
+# **Complete Implementation Plan: Assistant UI Cloud + LangGraph Integration**
 
-## **Phase 1: FastAPI Backend Setup**
-
-### **Step 1.1: Create Backend Directory Structure**
-
-```bash
-# From project root
-mkdir backend
-cd backend
-
-# Create directory structure
-mkdir app
-mkdir app/api
-mkdir app/core
-mkdir app/services
-touch app/__init__.py
-touch app/api/__init__.py
-touch app/core/__init__.py
-touch app/services/__init__.py
-touch app/main.py
-touch requirements.txt
-touch .env
-touch .env.example
-```
-
-### **Step 1.2: Create Requirements File**
-
-**File: `backend/requirements.txt`**
+## **Architecture Overview**
 
 ```
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-httpx==0.25.2
-python-dotenv==1.0.0
-pydantic==2.5.0
-python-multipart==0.0.6
+┌─────────────────────────────────────────────────────────────────┐
+│                         FRONTEND (Next.js)                     │
+├─────────────────────────────────────────────────────────────────┤
+│  MyRuntimeProvider                                             │
+│  ├── useCloudThreadListRuntime                                 │
+│  │   ├── Assistant UI Cloud (Public) ─── Thread Persistence   │
+│  │   └── runtimeHook: useMyLangGraphRuntime                   │
+│  │       ├── stream: sendMessage()                            │
+│  │       └── onSwitchToThread: getThreadState()               │
+│  └── chatApi utilities                                         │
+│      ├── createThread()                                        │
+│      ├── sendMessage()                                         │
+│      └── getThreadState()                                      │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                │ HTTP Requests
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     FASTAPI BACKEND (Port 8000)                │
+├─────────────────────────────────────────────────────────────────┤
+│  LangGraph SDK Client Wrapper                                  │
+│  ├── POST /threads          ─── Create Thread                 │
+│  ├── GET  /threads/{id}     ─── Get Thread State              │
+│  └── POST /threads/{id}/run ─── Stream Messages               │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                │ LangGraph SDK
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      LANGGRAPH SERVER                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Development: http://localhost:8001                            │
+│  Production:  LangGraph Cloud                                  │
+│  ├── Thread Management                                         │
+│  ├── Agent Execution                                           │
+│  └── Message Streaming                                         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### **Step 1.3: Environment Configuration**
+## **Phase 1: Backend - LangGraph SDK Integration**
 
-**File: `backend/.env.example`**
-
-```
-ASSISTANT_UI_BASE_URL=https://proj-0sacnnij1jo5.assistant-api.com
-ENVIRONMENT=development
-HOST=0.0.0.0
-PORT=8000
-```
-
-**File: `backend/.env`**
-
-```
-ASSISTANT_UI_BASE_URL=https://proj-0sacnnij1jo5.assistant-api.com
-ENVIRONMENT=development
-HOST=0.0.0.0
-PORT=8000
-```
-
-### **Step 1.4: Core Configuration**
-
-**File: `backend/app/core/config.py`**
+### **1.1 Update Dependencies**
 
 ```python
+# backend/requirements.txt
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.4.2
+pydantic-settings==2.0.3
+python-dotenv==1.0.0
+httpx==0.25.2
+langgraph-sdk==0.1.0  # NEW: LangGraph SDK
+```
+
+### **1.2 Configuration**
+
+```python
+# backend/app/core/config.py
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
-    assistant_ui_base_url: str
+    # Assistant UI Cloud (Public)
+    assistant_ui_cloud_url: str = "https://proj-0sacnnij1jo5.assistant-api.com"
+
+    # LangGraph Configuration
+    langgraph_api_url: str = "http://localhost:8001"  # Local dev
+    langgraph_api_key: str = ""  # Empty for local, required for cloud
+
+    # Environment
     environment: str = "development"
-    host: str = "0.0.0.0"
-    port: int = 8000
 
     class Config:
         env_file = ".env"
@@ -77,250 +80,345 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-### **Step 1.5: Data Models**
-
-**File: `backend/app/core/models.py`**
+### **1.3 LangGraph Service**
 
 ```python
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-
-class Message(BaseModel):
-    role: str
-    content: str
-
-class ChatRequest(BaseModel):
-    messages: List[Message]
-
-class ChatResponse(BaseModel):
-    content: str
-    role: str = "assistant"
-
-class ThreadCreateRequest(BaseModel):
-    title: Optional[str] = None
-
-class ThreadResponse(BaseModel):
-    id: str
-    title: str
-    created_at: str
-```
-
-### **Step 1.6: Assistant UI Cloud Service**
-
-**File: `backend/app/services/assistant_ui_client.py`**
-
-```python
-import httpx
+# backend/app/services/langgraph_client.py
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langgraph_sdk import Client
+from typing import AsyncGenerator, Dict, Any, List
 import json
-from typing import AsyncGenerator, List, Dict, Any
+
 from app.core.config import settings
-from app.core.models import Message
 
-class AssistantUIClient:
+class LangGraphClient:
     def __init__(self):
-        self.base_url = settings.assistant_ui_base_url
-        self.client = httpx.AsyncClient(timeout=30.0)
+        client_config = {"api_url": settings.langgraph_api_url}
+        if settings.langgraph_api_key:
+            client_config["api_key"] = settings.langgraph_api_key
 
-    async def stream_chat(self, messages: List[Message]) -> AsyncGenerator[str, None]:
-        """Stream chat responses from Assistant UI Cloud"""
-        try:
-            # Convert messages to the format expected by Assistant UI Cloud
-            formatted_messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-            ]
+        self.client = Client(**client_config)
+        self.assistant_id = "default"  # Will be configurable
 
-            payload = {
-                "messages": formatted_messages,
-                "stream": True
+    async def create_thread(self) -> Dict[str, Any]:
+        """Create a new thread in LangGraph"""
+        thread = await self.client.threads.acreate()
+        return {"thread_id": thread["thread_id"]}
+
+    async def get_thread_state(self, thread_id: str) -> Dict[str, Any]:
+        """Get the current state of a thread"""
+        state = await self.client.threads.aget_state(thread_id)
+        return {
+            "values": state.get("values", {}),
+            "tasks": state.get("tasks", [])
+        }
+
+    async def stream_messages(
+        self,
+        thread_id: str,
+        messages: List[Dict[str, Any]]
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Stream messages to LangGraph and yield responses"""
+
+        # Convert messages to LangChain format
+        lc_messages = self._convert_messages(messages)
+
+        input_data = {"messages": lc_messages}
+        config = {
+            "configurable": {
+                "model_name": "openai",
             }
+        }
 
-            async with self.client.stream(
-                "POST",
-                f"{self.base_url}/api/chat",
-                json=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "text/event-stream"
-                }
-            ) as response:
-                response.raise_for_status()
+        async for event in self.client.runs.astream(
+            thread_id=thread_id,
+            assistant_id=self.assistant_id,
+            input=input_data,
+            config=config,
+            stream_mode="messages"
+        ):
+            yield self._format_event(event)
 
-                async for chunk in response.aiter_text():
-                    if chunk.strip():
-                        # Parse SSE format if needed
-                        if chunk.startswith("data: "):
-                            data = chunk[6:]  # Remove "data: " prefix
-                            if data.strip() != "[DONE]":
-                                yield data
-                        else:
-                            yield chunk
+    def _convert_messages(self, messages: List[Dict[str, Any]]) -> List:
+        """Convert assistant-ui messages to LangChain format"""
+        converted = []
+        for msg in messages:
+            if msg["role"] == "user":
+                converted.append(HumanMessage(content=msg["content"]))
+            elif msg["role"] == "assistant":
+                converted.append(AIMessage(content=msg["content"]))
+            elif msg["role"] == "system":
+                converted.append(SystemMessage(content=msg["content"]))
+        return converted
 
-        except httpx.HTTPError as e:
-            yield f"Error: {str(e)}"
+    def _format_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Format LangGraph event for assistant-ui consumption"""
+        return {
+            "type": event.get("event", "unknown"),
+            "data": event.get("data", {}),
+            "timestamp": event.get("timestamp")
+        }
 
-    async def create_thread(self, title: str = None) -> Dict[str, Any]:
-        """Create a new thread"""
-        payload = {"title": title} if title else {}
-
-        response = await self.client.post(
-            f"{self.base_url}/api/threads",
-            json=payload
-        )
-        response.raise_for_status()
-        return response.json()
-
-    async def get_threads(self) -> List[Dict[str, Any]]:
-        """Get all threads"""
-        response = await self.client.get(f"{self.base_url}/api/threads")
-        response.raise_for_status()
-        return response.json()
-
-    async def close(self):
-        await self.client.aclose()
-
-# Global client instance
-assistant_client = AssistantUIClient()
+langgraph_client = LangGraphClient()
 ```
 
-### **Step 1.7: API Routes**
-
-**File: `backend/app/api/chat.py`**
+### **1.4 API Endpoints**
 
 ```python
+# backend/app/api/langgraph.py
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from app.core.models import ChatRequest, ChatResponse
-from app.services.assistant_ui_client import assistant_client
+from pydantic import BaseModel
+from typing import List, Dict, Any
 import json
 
-router = APIRouter()
+from app.services.langgraph_client import langgraph_client
 
-@router.post("/chat")
-async def chat_stream(request: ChatRequest):
-    """Stream chat responses"""
-    try:
-        async def generate():
-            async for chunk in assistant_client.stream_chat(request.messages):
-                # Format as SSE if needed
-                yield f"data: {chunk}\n\n"
+router = APIRouter(prefix="/api", tags=["langgraph"])
 
-        return StreamingResponse(
-            generate(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class CreateThreadRequest(BaseModel):
+    pass  # No additional params needed
 
-@router.options("/chat")
-async def chat_options():
-    """Handle CORS preflight"""
-    return {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-    }
-```
+class CreateThreadResponse(BaseModel):
+    thread_id: str
 
-**File: `backend/app/api/threads.py`**
+class SendMessageRequest(BaseModel):
+    messages: List[Dict[str, Any]]
 
-```python
-from fastapi import APIRouter, HTTPException
-from typing import List
-from app.core.models import ThreadCreateRequest, ThreadResponse
-from app.services.assistant_ui_client import assistant_client
-
-router = APIRouter()
-
-@router.post("/threads", response_model=ThreadResponse)
-async def create_thread(request: ThreadCreateRequest):
+@router.post("/threads", response_model=CreateThreadResponse)
+async def create_thread(request: CreateThreadRequest):
     """Create a new thread"""
     try:
-        result = await assistant_client.create_thread(request.title)
-        return ThreadResponse(**result)
+        result = await langgraph_client.create_thread()
+        return CreateThreadResponse(thread_id=result["thread_id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/threads", response_model=List[ThreadResponse])
-async def get_threads():
-    """Get all threads"""
+@router.get("/threads/{thread_id}")
+async def get_thread_state(thread_id: str):
+    """Get thread state"""
     try:
-        threads = await assistant_client.get_threads()
-        return [ThreadResponse(**thread) for thread in threads]
+        state = await langgraph_client.get_thread_state(thread_id)
+        return state
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/threads/{thread_id}/stream")
+async def stream_messages(thread_id: str, request: SendMessageRequest):
+    """Stream messages with LangGraph"""
+
+    async def event_stream():
+        try:
+            async for event in langgraph_client.stream_messages(
+                thread_id, request.messages
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            error_event = {"type": "error", "data": {"message": str(e)}}
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
 ```
 
-### **Step 1.8: Main Application**
-
-**File: `backend/app/main.py`**
+### **1.5 Main Application**
 
 ```python
+# backend/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import chat, threads
+
+from app.api.langgraph import router as langgraph_router
 from app.core.config import settings
 
 app = FastAPI(
-    title="Assistant UI Proxy API",
-    description="FastAPI backend proxy for Assistant UI Cloud",
+    title="Assistant UI LangGraph Backend",
+    description="FastAPI backend for Assistant UI + LangGraph integration",
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Add your frontend URLs
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(chat.router, prefix="/api", tags=["chat"])
-app.include_router(threads.router, prefix="/api", tags=["threads"])
+app.include_router(langgraph_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Assistant UI Proxy API", "status": "running"}
+    return {
+        "message": "Assistant UI LangGraph Backend",
+        "status": "running",
+        "environment": settings.environment
+    }
 
 @app.get("/health")
-async def health_check():
-    return {"status": "healthy", "environment": settings.environment}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=True if settings.environment == "development" else False
-    )
+async def health():
+    return {"status": "healthy"}
 ```
 
-## **Phase 2: Frontend Updates**
+## **Phase 2: Frontend - Assistant UI Cloud + LangGraph Integration**
 
-### **Step 2.1: Update Runtime Provider**
+### **2.1 Install Dependencies**
 
-**File: `src/components/assistant-ui/runtime-provider.tsx`**
+```bash
+cd frontend
+npm install @assistant-ui/react-langgraph @langchain/langgraph-sdk
+```
+
+### **2.2 Chat API Utilities**
 
 ```typescript
+// frontend/lib/chatApi.ts
+import { ThreadState } from "@langchain/langgraph-sdk";
+import { LangChainMessage } from "@assistant-ui/react-langgraph";
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+export const createThread = async (): Promise<{ thread_id: string }> => {
+  const response = await fetch(`${BACKEND_URL}/api/threads`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create thread: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const getThreadState = async (
+  threadId: string
+): Promise<ThreadState<Record<string, unknown>>> => {
+  const response = await fetch(`${BACKEND_URL}/api/threads/${threadId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to get thread state: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+export const sendMessage = async function* (params: {
+  threadId: string;
+  messages: LangChainMessage[];
+}): AsyncGenerator<any> {
+  const response = await fetch(
+    `${BACKEND_URL}/api/threads/${params.threadId}/stream`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: params.messages }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to send message: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\n");
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const event = JSON.parse(line.slice(6));
+          yield event;
+        } catch (e) {
+          console.warn("Failed to parse SSE event:", line);
+        }
+      }
+    }
+  }
+};
+```
+
+### **2.3 Runtime Provider**
+
+```typescript
+// frontend/components/MyRuntimeProvider.tsx
 "use client";
 
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { ReactNode } from "react";
+import {
+  AssistantCloud,
+  AssistantRuntimeProvider,
+  useCloudThreadListRuntime,
+  useThreadListItemRuntime,
+} from "@assistant-ui/react";
+import { useLangGraphRuntime } from "@assistant-ui/react-langgraph";
+import { createThread, getThreadState, sendMessage } from "@/lib/chatApi";
+import { LangChainMessage } from "@assistant-ui/react-langgraph";
 
-export function RuntimeProvider({ children }: { children: ReactNode }) {
-  const runtime = useChatRuntime({
-    api: "http://localhost:8000/api/chat", // FastAPI backend
+const useMyLangGraphRuntime = () => {
+  const threadListItemRuntime = useThreadListItemRuntime();
+
+  const runtime = useLangGraphRuntime({
+    stream: async function* (messages) {
+      const { externalId } = await threadListItemRuntime.initialize();
+      if (!externalId) throw new Error("Thread not found");
+
+      const generator = sendMessage({
+        threadId: externalId,
+        messages,
+      });
+
+      yield* generator;
+    },
+    onSwitchToThread: async (externalId) => {
+      const state = await getThreadState(externalId);
+      return {
+        messages:
+          (state.values as { messages?: LangChainMessage[] }).messages ?? [],
+        interrupts: [], // Handle interrupts if needed
+      };
+    },
+  });
+
+  return runtime;
+};
+
+// Public Assistant UI Cloud (no auth required)
+const cloud = new AssistantCloud({
+  baseUrl: "https://proj-0sacnnij1jo5.assistant-api.com",
+  // No authToken needed for public cloud
+});
+
+export function MyRuntimeProvider({ children }: { children: React.ReactNode }) {
+  const runtime = useCloudThreadListRuntime({
+    cloud,
+    runtimeHook: useMyLangGraphRuntime,
+    create: async () => {
+      const { thread_id } = await createThread();
+      return { externalId: thread_id };
+    },
+    // Optional: Add delete function
+    // delete: async (externalId) => {
+    //   await deleteThread(externalId);
+    // },
   });
 
   return (
@@ -331,112 +429,196 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
 }
 ```
 
-### **Step 2.2: Update Main Layout or App**
-
-**Update your main layout to use the new RuntimeProvider instead of the current provider:**
+### **2.4 Update Main Layout**
 
 ```typescript
-// Replace existing AssistantRuntimeProvider usage with:
-import { RuntimeProvider } from "@/components/assistant-ui/runtime-provider";
+// frontend/app/layout.tsx
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { MyRuntimeProvider } from "@/components/MyRuntimeProvider";
 
-// Wrap your app content with RuntimeProvider instead
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Assistant UI + LangGraph",
+  description: "Chat application with Assistant UI Cloud and LangGraph",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <MyRuntimeProvider>{children}</MyRuntimeProvider>
+      </body>
+    </html>
+  );
+}
 ```
 
-### **Step 2.3: Environment Variables**
+### **2.5 Main Chat Interface**
 
-**File: `frontend/.env.local`**
+```typescript
+// frontend/app/page.tsx
+import { Thread, ThreadList } from "@assistant-ui/react";
+import { makeMarkdownText } from "@assistant-ui/react-markdown";
 
+const MarkdownText = makeMarkdownText();
+
+export default function Home() {
+  return (
+    <div className="flex h-screen">
+      {/* Thread List Sidebar */}
+      <div className="w-80 border-r bg-gray-50">
+        <div className="p-4">
+          <h2 className="text-lg font-semibold">Conversations</h2>
+        </div>
+        <ThreadList />
+      </div>
+
+      {/* Chat Interface */}
+      <div className="flex-1">
+        <Thread
+          assistantMessage={{
+            components: { Text: MarkdownText },
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 ```
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+
+## **Phase 3: LangGraph Agent Setup**
+
+### **3.1 Simple LangGraph Agent**
+
+```python
+# Create a new directory: langgraph-server/
+# langgraph-server/agent.py
+from langgraph import StateGraph, END
+from langgraph.prebuilt import ToolNode
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from typing import TypedDict, List
+
+class AgentState(TypedDict):
+    messages: List[BaseMessage]
+
+# Initialize the model
+model = ChatOpenAI(model="gpt-4", temperature=0)
+
+def should_continue(state):
+    messages = state["messages"]
+    last_message = messages[-1]
+    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        return "tools"
+    else:
+        return END
+
+def call_model(state):
+    messages = state["messages"]
+    response = model.invoke(messages)
+    return {"messages": messages + [response]}
+
+# Create the graph
+workflow = StateGraph(AgentState)
+workflow.add_node("agent", call_model)
+# workflow.add_node("tools", ToolNode(tools))  # Add tools as needed
+
+workflow.set_entry_point("agent")
+workflow.add_conditional_edges(
+    "agent",
+    should_continue,
+    ["tools", END]
+)
+
+# Compile the graph
+app = workflow.compile()
 ```
 
-## **Phase 3: Installation & Setup**
+### **3.2 LangGraph Server Config**
 
-### **Step 3.1: Backend Installation**
+```yaml
+# langgraph-server/langgraph.json
+{
+  "dependencies": ["langchain-openai", "langgraph"],
+  "graphs": { "default": "./agent.py:app" },
+  "env": ".env",
+}
+```
+
+## **Phase 4: Environment Configuration**
+
+### **4.1 Backend Environment**
 
 ```bash
-cd backend
-python -m venv venv
+# backend/.env
+ASSISTANT_UI_CLOUD_URL=https://proj-0sacnnij1jo5.assistant-api.com
+LANGGRAPH_API_URL=http://localhost:8001
+LANGGRAPH_API_KEY=
+ENVIRONMENT=development
+```
 
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
+### **4.2 Frontend Environment**
+
+```bash
+# frontend/.env.local
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_ASSISTANT_BASE_URL=https://proj-0sacnnij1jo5.assistant-api.com
+```
+
+### **4.3 LangGraph Environment**
+
+```bash
+# langgraph-server/.env
+OPENAI_API_KEY=your_openai_api_key
+```
+
+## **Phase 5: Startup Commands**
+
+### **5.1 Development Startup**
+
+```bash
+# Terminal 1: Backend
+cd backend
 source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-pip install -r requirements.txt
-```
+# Terminal 2: LangGraph Server
+cd langgraph-server
+langgraph up --host 0.0.0.0 --port 8001
 
-### **Step 3.2: Frontend Dependencies**
-
-```bash
-cd .. # Back to frontend directory
-# Ensure you have the required packages
-npm install @assistant-ui/react @assistant-ui/react-ai-sdk ai
-```
-
-## **Phase 4: Testing & Validation**
-
-### **Step 4.1: Start Backend**
-
-```bash
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### **Step 4.2: Start Frontend**
-
-```bash
+# Terminal 3: Frontend
 cd frontend
 npm run dev
 ```
 
-### **Step 4.3: Test Endpoints**
+### **5.2 Production Configuration**
 
 ```bash
-# Health check
-curl http://localhost:8000/health
-
-# Test chat (after frontend is running)
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "Hello"}]}'
+# backend/.env.production
+LANGGRAPH_API_URL=https://api.langchain.com
+LANGGRAPH_API_KEY=your_langchain_api_key
 ```
 
-### **Step 4.4: Validation Checklist**
+## **Testing Strategy**
 
-- [ ] Backend starts without errors
-- [ ] Frontend connects to backend
-- [ ] Chat messages work
-- [ ] Thread creation works
-- [ ] Thread switching works
-- [ ] Streaming responses work
-- [ ] CORS is properly configured
+1. **Backend Health**: `curl http://localhost:8000/health`
+2. **LangGraph Server**: `curl http://localhost:8001/threads`
+3. **Create Thread**: `curl -X POST http://localhost:8000/api/threads`
+4. **Frontend**: Open `http://localhost:3000`
 
-## **Phase 5: Production Considerations**
+## **Key Benefits of This Architecture**
 
-### **Step 5.1: Docker Configuration (Optional)**
+1. **Separation of Concerns**: Assistant UI Cloud handles UI/thread persistence, LangGraph handles AI
+2. **Environment Flexibility**: Easy switch between local and cloud LangGraph
+3. **Standard SDKs**: Uses official `@langchain/langgraph-sdk`
+4. **Scalability**: Can scale each component independently
+5. **Development Workflow**: Local development with production deployment path
 
-**File: `backend/Dockerfile`**
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app/ ./app/
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### **Step 5.2: Error Handling Enhancement**
-
-- Add proper logging
-- Add retry logic for Assistant UI Cloud calls
-- Add request validation
-- Add rate limiting if needed
-
-This plan provides a complete, production-ready architecture that decouples your frontend from Assistant UI Cloud while maintaining all functionality.
+This plan follows the exact pattern from the official assistant-ui example while adapting it for your FastAPI backend preference and development-to-production workflow.

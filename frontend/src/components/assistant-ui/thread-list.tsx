@@ -3,11 +3,14 @@ import {
   ThreadListItemPrimitive,
   ThreadListPrimitive,
   useThreadList,
+  useThreadListItem,
 } from "@assistant-ui/react";
-import { ArchiveIcon, PlusIcon, MessageCircle } from "lucide-react";
+import { PlusIcon, MessageCircle, Trash2Icon } from "lucide-react";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { getThreadState } from "@/lib/chatApi";
 
 export const ThreadList: FC = () => {
   const threads = useThreadList((state) => state.threads);
@@ -56,7 +59,7 @@ const ThreadListItem: FC = () => {
         <MessageCircle className="w-4 h-4 text-white/60 mt-0.5 flex-shrink-0" />
         <div className="flex-grow min-w-0">
           <ThreadListItemTitle />
-          <ThreadListItemTimestamp />
+          <ThreadListItemMetadata />
         </div>
       </ThreadListItemPrimitive.Trigger>
       <ThreadListItemArchive />
@@ -67,21 +70,100 @@ const ThreadListItem: FC = () => {
 const ThreadListItemTitle: FC = () => {
   return (
     <p className="text-sm text-white/90 truncate font-medium">
-      <ThreadListItemPrimitive.Title fallback="New Chat" />
+      <ThreadListItemPrimitive.Title fallback="New Conversation" />
     </p>
   );
 };
 
-const ThreadListItemTimestamp: FC = () => {
-  // Format the timestamp - for now we'll show a placeholder since we don't have real timestamps
-  // In a real app, you'd get this from the thread metadata
-  const formatTime = () => {
-    // This is a placeholder - in a real implementation you'd get the actual timestamp
-    // from the thread's last message or thread metadata
-    return "Just now";
+const ThreadListItemMetadata: FC = () => {
+  const threadId = useThreadListItem((state) => state.threadId);
+  const externalId = useThreadListItem((state) => state.externalId);
+  const [relativeTime, setRelativeTime] = useState<string>("Today");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchThreadData = async () => {
+      const backendThreadId = externalId || threadId;
+
+      if (!backendThreadId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const state = await getThreadState(backendThreadId);
+        const messages = state.values.messages || [];
+
+        let lastMessageTime: Date;
+
+        if (messages.length > 0) {
+          const lastMessage = messages[messages.length - 1];
+          const possibleTime =
+            lastMessage.timestamp ||
+            lastMessage.created_at ||
+            lastMessage.createdAt ||
+            lastMessage.time;
+
+          if (possibleTime) {
+            lastMessageTime = new Date(possibleTime);
+          } else {
+            lastMessageTime = new Date();
+          }
+        } else {
+          lastMessageTime = new Date();
+        }
+
+        const timeDisplay = formatSimpleRelativeTime(lastMessageTime);
+        setRelativeTime(timeDisplay);
+      } catch (error) {
+        setRelativeTime("Today");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchThreadData();
+  }, [threadId, externalId]);
+
+  const formatSimpleRelativeTime = (date: Date | string | undefined) => {
+    if (!date) return "Today";
+
+    const now = new Date();
+    const targetDate = new Date(date);
+
+    if (isNaN(targetDate.getTime())) {
+      return "Today";
+    }
+
+    const diffMs = now.getTime() - targetDate.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 1) {
+      return "Today";
+    } else if (diffDays === 2) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else if (diffDays < 14) {
+      return "Last week";
+    } else if (diffDays < 30) {
+      const diffWeeks = Math.floor(diffDays / 7);
+      return `${diffWeeks} weeks ago`;
+    } else if (diffDays < 60) {
+      return "Last month";
+    } else if (diffDays < 365) {
+      const diffMonths = Math.floor(diffDays / 30);
+      return `${diffMonths} months ago`;
+    } else {
+      return "Over a year ago";
+    }
   };
 
-  return <p className="text-xs text-white/50 mt-0.5">{formatTime()}</p>;
+  if (isLoading) {
+    return <p className="text-xs text-white/40 mt-0.5">•••</p>;
+  }
+
+  return <p className="text-xs text-white/50 mt-0.5">{relativeTime}</p>;
 };
 
 const ThreadListItemArchive: FC = () => {
@@ -90,9 +172,9 @@ const ThreadListItemArchive: FC = () => {
       <TooltipIconButton
         className="hover:text-red-400 text-white/60 size-4 p-0 flex-shrink-0"
         variant="ghost"
-        tooltip="Archive thread"
+        tooltip="Delete thread"
       >
-        <ArchiveIcon />
+        <Trash2Icon />
       </TooltipIconButton>
     </ThreadListItemPrimitive.Archive>
   );

@@ -3,8 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
+import { MyRuntimeProvider } from "@/components/assistant/MyRuntimeProvider";
 import { Thread } from "@/components/assistant-ui/thread";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 import { IdentitySelector } from "@/components/dashboard/identity-selector";
@@ -21,14 +20,6 @@ export default function DashboardPage() {
       router.push("/login");
     }
   }, [isAuthenticated, router]);
-
-  // Runtime provider for the entire dashboard with better thread management
-  const runtime = useChatRuntime({
-    api: "/api/chat",
-    // Enable automatic thread title generation
-    maxSteps: 10,
-    // You can add additional configuration here for thread management
-  });
 
   if (!isAuthenticated || !user) {
     return null; // Will redirect
@@ -48,7 +39,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
+    <MyRuntimeProvider>
       <div className="h-screen bg-black text-white flex flex-col">
         {/* Header */}
         <header className="border-b border-white/10 bg-black/50 backdrop-blur-md p-4">
@@ -85,7 +76,7 @@ export default function DashboardPage() {
 
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Assistant UI Thread List - handles thread creation automatically */}
+          {/* Assistant UI Thread List - now with cloud persistence + LangGraph integration */}
           <div className="w-80 border-r border-white/10 bg-black/30 backdrop-blur-sm p-4">
             <div className="mb-4">
               <h2 className="font-semibold text-white/90 mb-2">
@@ -95,12 +86,12 @@ export default function DashboardPage() {
             <ThreadList />
           </div>
 
-          {/* Chat Interface */}
+          {/* Chat Interface - now powered by LangGraph + Assistant UI Cloud */}
           <div className="flex-1 flex flex-col min-h-0">
             <Thread />
           </div>
         </div>
       </div>
-    </AssistantRuntimeProvider>
+    </MyRuntimeProvider>
   );
 }
