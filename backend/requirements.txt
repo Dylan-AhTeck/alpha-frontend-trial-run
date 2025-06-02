@@ -1,7 +1,11 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-pydantic==2.4.2
+pydantic==2.11.5
 pydantic-settings==2.0.3
 python-dotenv==1.0.0
-httpx==0.25.2
-langgraph-sdk==0.1.0 
+httpx==0.28.1
+langgraph-sdk==0.1.0
+supabase==2.15.2
+pyjwt==2.10.1
+cryptography==45.0.3
+email-validator==2.2.0 

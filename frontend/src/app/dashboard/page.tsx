@@ -11,23 +11,23 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
 export default function DashboardPage() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { user, session, signOut } = useAuth();
   const router = useRouter();
   const [selectedAgent, setSelectedAgent] = useState("dylan");
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!session) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [session, router]);
 
-  if (!isAuthenticated || !user) {
+  if (!session || !user) {
     return null; // Will redirect
   }
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleLogout = async () => {
+    await signOut();
+    // Don't manually redirect - let the SIGNED_OUT event handle it
   };
 
   const handleAgentChange = (agentId: string) => {
@@ -51,7 +51,7 @@ export default function DashboardPage() {
 
             <div className="flex items-center space-x-4">
               <span className="text-sm text-white/70">{user.email}</span>
-              {user.isAdmin && (
+              {user.email?.includes("admin") && (
                 <Button
                   variant="outline"
                   size="sm"

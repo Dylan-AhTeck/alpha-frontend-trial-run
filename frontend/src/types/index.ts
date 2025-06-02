@@ -1,3 +1,5 @@
+import { User as SupabaseUser, Session } from "@supabase/supabase-js";
+
 export interface User {
   id: string;
   email: string;
@@ -22,10 +24,19 @@ export interface Message {
 }
 
 export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  login: (email: string) => Promise<void>;
-  logout: () => void;
-  addThread: (thread: Thread) => void;
-  updateThread: (threadId: string, messages: Message[]) => void;
+  user: SupabaseUser | null;
+  session: Session | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+// Backend API response types
+export interface EmailCheckResponse {
+  email: string;
+  exists: boolean;
+  is_beta_user: boolean;
+  verified: boolean;
+  status: "not_beta" | "new_user" | "pending_verification" | "verified_user";
 }

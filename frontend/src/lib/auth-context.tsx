@@ -1,115 +1,111 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { AuthState, User, Thread, Message } from "@/types";
-import { getDummyUsers } from "./dummy-data";
+import { User, Session } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
+import { AuthState } from "@/types";
+import { supabase } from "./supabase/client";
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    // Check localStorage for existing session
-    const savedUser = localStorage.getItem("alpha-user");
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        // Ensure we get fresh dummy data on refresh
-        const dummyUsers = getDummyUsers();
-        const freshUser = dummyUsers.find(
-          (u: User) => u.email === parsedUser.email
-        );
+    // Listen for auth changes and handle redirects
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email);
 
-        if (freshUser) {
-          setUser(freshUser);
-        } else {
-          setUser(parsedUser);
-        }
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error("Error parsing saved user:", error);
-        localStorage.removeItem("alpha-user");
+      // Update state
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      // Handle different auth events
+      switch (event) {
+        case "INITIAL_SESSION":
+          // Initial session loaded - we can stop loading
+          setLoading(false);
+          // If user is already authenticated, redirect to dashboard
+          // BUT don't redirect if we're on the confirmed page
+          if (
+            session?.user &&
+            !window.location.pathname.startsWith("/confirmed")
+          ) {
+            router.push("/dashboard");
+          }
+          break;
+
+        case "SIGNED_IN":
+          // User just signed in - redirect to dashboard
+          setLoading(false);
+          if (!window.location.pathname.startsWith("/confirmed")) {
+            router.push("/dashboard");
+          }
+          break;
+
+        case "SIGNED_OUT":
+          // User signed out - redirect to home/login
+          setLoading(false);
+          router.push("/");
+          break;
+
+        case "TOKEN_REFRESHED":
+          // Token was refreshed - no redirect needed, just update state
+          setLoading(false);
+          console.log("Token refreshed successfully");
+          break;
+
+        default:
+          setLoading(false);
+          break;
       }
-    }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const dummyUsers = getDummyUsers();
-    let userToLogin = dummyUsers.find((u: User) => u.email === email);
-
-    if (!userToLogin) {
-      // For any email not in dummy data, use the first non-admin user as template
-      // but with the entered email (for demo purposes)
-      const templateUser = dummyUsers.find((u: User) => !u.isAdmin);
-      if (templateUser && email !== "admin@alpha.com") {
-        userToLogin = {
-          ...templateUser,
-          id: `user-${Date.now()}`,
-          email,
-          isAdmin: false,
-        };
-      } else {
-        // Create new user for admin or fallback
-        userToLogin = {
-          id: `user-${Date.now()}`,
-          email,
-          threads: [],
-          isAdmin: email === "admin@alpha.com",
-        };
-      }
-    }
-
-    setUser(userToLogin);
-    setIsAuthenticated(true);
-    localStorage.setItem("alpha-user", JSON.stringify(userToLogin));
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    // Don't manually redirect - let the SIGNED_IN event handle it
   };
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem("alpha-user");
+  const signUp = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed`,
+      },
+    });
+    if (error) throw error;
+    // Don't manually redirect - let the auth event listener handle it
   };
 
-  const addThread = (thread: Thread) => {
-    if (!user) return;
-
-    const updatedUser = {
-      ...user,
-      threads: [thread, ...user.threads], // Add new thread at the beginning
-    };
-
-    setUser(updatedUser);
-    localStorage.setItem("alpha-user", JSON.stringify(updatedUser));
-  };
-
-  const updateThread = (threadId: string, messages: Message[]) => {
-    if (!user) return;
-
-    const updatedThreads = user.threads.map((thread) =>
-      thread.id === threadId
-        ? { ...thread, messages, lastUpdated: new Date() }
-        : thread
-    );
-
-    const updatedUser = {
-      ...user,
-      threads: updatedThreads.sort(
-        (a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime()
-      ),
-    };
-
-    setUser(updatedUser);
-    localStorage.setItem("alpha-user", JSON.stringify(updatedUser));
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    // Don't manually redirect - let the SIGNED_OUT event handle it
   };
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, user, login, logout, addThread, updateThread }}
+      value={{
+        user,
+        session,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>

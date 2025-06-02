@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     langgraph_api_url: str = "http://localhost:2024"  # Local dev
     langgraph_api_key: str = ""  # Empty for local, required for cloud
     
+    # Supabase Configuration
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_service_role_key: Optional[str] = None  # For admin operations
+    supabase_jwt_secret: str = ""  # For JWT verification
+    
     # Environment
     environment: str = "development"
     host: str = "0.0.0.0"

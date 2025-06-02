@@ -10,14 +10,14 @@ import { formatDistanceToNow } from "date-fns";
 import { getDummyUsers } from "@/lib/dummy-data";
 
 export default function AdminPage() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { user, session, signOut } = useAuth();
   const router = useRouter();
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [selectedThread, setSelectedThread] = useState<ThreadType | null>(null);
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.isAdmin) {
+    if (!session || !user?.email?.includes("admin")) {
       router.push("/dashboard");
       return;
     }
@@ -25,9 +25,9 @@ export default function AdminPage() {
     // Load all users and their threads
     const users = getDummyUsers().filter((u) => !u.isAdmin);
     setAllUsers(users);
-  }, [isAuthenticated, user, router]);
+  }, [session, user, router]);
 
-  if (!isAuthenticated || !user?.isAdmin) {
+  if (!session || !user?.email?.includes("admin")) {
     return null; // Will redirect
   }
 
@@ -35,9 +35,9 @@ export default function AdminPage() {
     router.push("/dashboard");
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleLogout = async () => {
+    await signOut();
+    // Don't manually redirect - let the SIGNED_OUT event handle it
   };
 
   // Get all threads from all users, sorted by last updated
