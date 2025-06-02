@@ -8,4 +8,5 @@ langgraph-sdk==0.1.0
 supabase==2.15.2
 pyjwt==2.10.1
 cryptography==45.0.3
-email-validator==2.2.0 
+email-validator==2.2.0
+requests==2.31.0 

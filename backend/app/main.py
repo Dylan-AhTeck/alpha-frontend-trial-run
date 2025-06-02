@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.langgraph import router as langgraph_router
 from app.api.auth import router as auth_router
+from app.api.assistant import router as assistant_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -22,6 +23,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(assistant_router)
 app.include_router(langgraph_router)
 
 @app.get("/")

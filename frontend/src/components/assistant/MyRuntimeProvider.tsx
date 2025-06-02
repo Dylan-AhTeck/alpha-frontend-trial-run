@@ -18,6 +18,7 @@ import {
   createThread,
   deleteThread,
 } from "@/lib/chatApi";
+import { useAuth } from "@/lib/auth-context";
 
 // Custom LangGraph runtime hook
 const useMyLangGraphRuntime = () => {
@@ -80,25 +81,79 @@ const useMyLangGraphRuntime = () => {
   return runtime;
 };
 
+// Function to fetch assistant-ui token from our backend
+async function fetchAssistantToken(
+  supabaseToken: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/assistant/token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        "[ERROR] Failed to fetch assistant token:",
+        response.status,
+        response.statusText
+      );
+      return null;
+    }
+
+    const data = await response.json();
+    console.log("[DEBUG] Successfully fetched assistant token from backend");
+    return data.token;
+  } catch (error) {
+    console.error("[ERROR] Error fetching assistant token:", error);
+    return null;
+  }
+}
+
 export function MyRuntimeProvider({ children }: PropsWithChildren) {
-  // Create Assistant Cloud instance
-  const cloud = useMemo(
-    () =>
-      new AssistantCloud({
-        baseUrl:
-          process.env["NEXT_PUBLIC_ASSISTANT_BASE_URL"] ||
-          "https://proj-0sacnnij1jo5.assistant-api.com",
-        anonymous: true, // Using anonymous mode for now
-      }),
-    []
-  );
+  const { session, user, loading } = useAuth();
+
+  // Create Assistant Cloud instance with proper token authentication
+  const cloud = useMemo(() => {
+    // Don't create cloud instance if user is not authenticated or still loading
+    if (loading || !session || !user) return null;
+
+    return new AssistantCloud({
+      baseUrl:
+        process.env["NEXT_PUBLIC_ASSISTANT_BASE_URL"] ||
+        "https://proj-0sacnnij1jo5.assistant-api.com",
+      authToken: async () => {
+        // Get the Supabase access token
+        if (!session?.access_token) {
+          console.warn("[WARN] No access token available in session");
+          return null;
+        }
+
+        // Exchange Supabase token for assistant-ui token via our backend
+        const assistantToken = await fetchAssistantToken(session.access_token);
+
+        if (!assistantToken) {
+          console.error("[ERROR] Failed to get assistant token from backend");
+          return null;
+        }
+
+        console.log("[DEBUG] Using assistant-ui token for authentication");
+        return assistantToken;
+      },
+    });
+  }, [session, user, loading]);
 
   // Configure the runtime with lazy thread creation
   const runtime = useCloudThreadListRuntime({
-    cloud,
+    cloud: cloud!,
     runtimeHook: useMyLangGraphRuntime,
     create: async () => {
-      console.log("[DEBUG] Creating new thread via API...");
+      console.log("[DEBUG] Creating new thread via API for user:", user?.id);
       try {
         const response = await createThread();
         console.log("[DEBUG] Created thread with ID:", response.thread_id);
@@ -109,10 +164,26 @@ export function MyRuntimeProvider({ children }: PropsWithChildren) {
       }
     },
     delete: async (externalId: string) => {
-      console.log("[DEBUG] Deleting thread:", externalId);
+      console.log(
+        "[DEBUG] Deleting thread:",
+        externalId,
+        "for user:",
+        user?.id
+      );
       await deleteThread(externalId);
     },
   });
+
+  // Don't render the provider if user is not authenticated
+  if (loading || !session || !user || !cloud) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white/70">
+          {loading ? "Loading assistant..." : "Please sign in to continue"}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
