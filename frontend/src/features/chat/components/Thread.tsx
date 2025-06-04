@@ -204,7 +204,7 @@ const ThreadWelcomeSuggestions: FC = () => {
 
 const Composer: FC = () => {
   return (
-    <ComposerPrimitive.Root className="focus-within:border-aui-ring/20 flex w-full flex-wrap items-end rounded-lg bg-inherit px-2.5 shadow-sm transition-colors ease-in">
+    <ComposerPrimitive.Root className="border border-gray-300 focus-within:border-aui-ring/20 flex w-full flex-wrap items-end rounded-lg bg-inherit px-2.5 shadow-sm transition-colors ease-in">
       <ComposerPrimitive.Input
         autoFocus
         placeholder="Write a message..."
@@ -278,7 +278,7 @@ const EditComposer: FC = () => {
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root className="relative grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[auto_1fr] gap-y-2 py-4">
-      <div className="bg-background text-foreground col-start-2 ml-3 max-w-xl break-words rounded-3xl border px-5 py-2.5">
+      <div className="bg-background text-foreground col-start-1 col-span-2 ml-3 max-w-xl break-words rounded-3xl px-5 py-2.5">
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
       </div>
       <AssistantActionBar />
@@ -290,7 +290,7 @@ const AssistantMessage: FC = () => {
 
 const MessageError: FC = () => {
   return (
-    <ErrorPrimitive.Root className="col-span-full col-start-2 ml-3 mr-3 mt-2 flex items-center gap-2">
+    <ErrorPrimitive.Root className="col-span-full ml-3 mr-3 mt-2 flex items-center gap-2">
       <ErrorPrimitive.Message className="text-destructive text-sm" />
     </ErrorPrimitive.Root>
   );
@@ -301,7 +301,7 @@ const AssistantActionBar: FC = () => {
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="not-last"
-      className="text-muted-foreground col-start-2 ml-3 mt-2.5 flex gap-1"
+      className="text-muted-foreground col-span-2 ml-3 mt-1 flex gap-1"
     >
       <ActionBarPrimitive.Copy asChild>
         <TooltipIconButton tooltip="Copy">
@@ -325,7 +325,7 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
     <BranchPickerPrimitive.Root
       hideWhenSingleBranch
       className={cn(
-        "text-muted-foreground col-start-2 ml-3 inline-flex items-center text-xs",
+        "text-muted-foreground col-span-2 ml-3 inline-flex items-center text-xs",
         className
       )}
       {...rest}

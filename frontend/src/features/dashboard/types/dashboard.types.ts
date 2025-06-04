@@ -8,6 +8,7 @@ export interface DashboardHeaderProps {
   userRole: string | null;
   onLogout: () => void;
   onAdminClick: () => void;
+  onDeleteAll: () => void;
 }
 
 export interface DashboardState {
@@ -26,4 +27,5 @@ export interface UseDashboardReturn {
   handleAgentChange: (agentId: string) => void;
   handleLogout: () => void;
   handleAdminClick: () => void;
+  handleDeleteAll: () => void;
 }

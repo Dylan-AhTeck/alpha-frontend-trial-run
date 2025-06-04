@@ -162,11 +162,11 @@ class AdminService:
                 return False
             
             # Step 2: Delete from Assistant UI Cloud
-            assistant_ui_success = await self._delete_from_assistant_ui(thread_id)
-            if not assistant_ui_success:
-                logger.error(f"[ADMIN] Failed to delete thread {thread_id} from Assistant UI Cloud")
-                # Note: LangGraph deletion already succeeded, but we should still report failure
-                return False
+            # assistant_ui_success = await self._delete_from_assistant_ui(thread_id)
+            # if not assistant_ui_success:
+            #     logger.error(f"[ADMIN] Failed to delete thread {thread_id} from Assistant UI Cloud")
+            #     # Note: LangGraph deletion already succeeded, but we should still report failure
+            #     return False
             
             logger.info(f"[ADMIN_AUDIT] Thread {thread_id} successfully deleted by admin {admin_user_id}")
             return True
