@@ -8,9 +8,9 @@ import {
 import { PlusIcon, MessageCircle, Trash2Icon } from "lucide-react";
 import { useState, useEffect } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { getThreadState } from "@/lib/chatApi";
+import { getThreadState } from "@/shared/api/chatApi";
 
 export const ThreadList: FC = () => {
   const threads = useThreadList((state) => state.threads);

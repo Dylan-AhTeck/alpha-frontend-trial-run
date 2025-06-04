@@ -1,6 +1,6 @@
 "use client";
 
-import { LoginForm } from "@/components/auth/login-form";
+import { LoginForm } from "@/features/auth";
 import { FuturisticGraphic } from "@/components/landing/futuristic-graphic";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,16 +9,16 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function LoginPage() {
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (user) {
       router.push("/dashboard");
     }
-  }, [isAuthenticated, router]);
+  }, [user, router]);
 
-  if (isAuthenticated) {
+  if (user) {
     return null; // Will redirect
   }
 

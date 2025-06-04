@@ -17,7 +17,7 @@ import {
   getThreadState,
   createThread,
   deleteThread,
-} from "@/lib/chatApi";
+} from "@/shared/api/chatApi";
 import { useAuth } from "@/lib/auth-context";
 
 // Custom LangGraph runtime hook

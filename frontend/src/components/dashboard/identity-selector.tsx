@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/shared/components/ui/select";
 import { ChevronDown, Clock } from "lucide-react";
 
 interface IdentitySelectorProps {
