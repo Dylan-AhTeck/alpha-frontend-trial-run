@@ -43,10 +43,24 @@ async def handle_non_beta_request(request: NonBetaUserRequest, http_request: Req
 async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_user)):
     """Get current user information"""
     try:
+        logger.info(f"[DEBUG] Current user JWT payload: {current_user}")
+        
+        # Extract required fields from JWT
+        user_id = current_user.get("sub") or ""
+        email = current_user.get("email") or ""
+        user_role = current_user.get("user_role", "")
+        
+        logger.info(f"[DEBUG] Extracted - user_id: {user_id}, email: {email}, user_role: {user_role}")
+        
+        if user_role == "admin":
+            logger.info("🔑 ADMIN USER DETECTED!")
+        else:
+            logger.info("👤 Regular user detected")
+        
         return UserInfo(
-            user_id=current_user["user_id"],
-            email=current_user["email"],
-            role=current_user["role"]
+            user_id=user_id,
+            email=email,
+            role=user_role
         )
     except Exception as e:
         logger.error(f"Error getting user info: {e}")

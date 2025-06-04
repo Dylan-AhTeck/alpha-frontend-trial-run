@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional
 import json
 
 from langgraph_sdk import get_client
@@ -12,9 +12,15 @@ class LangGraphClient:
             pass
         self.assistant_id = "agent"  # Matches our LangGraph server configuration
     
-    async def create_thread(self) -> Dict[str, Any]:
-        """Create a new thread in LangGraph"""
-        thread = await self.client.threads.create()
+    async def create_thread(self, user_id: Optional[str] = None, user_email: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new thread in LangGraph with user metadata"""
+        metadata = {}
+        if user_id:
+            metadata["user_id"] = user_id
+        if user_email:
+            metadata["user_email"] = user_email
+            
+        thread = await self.client.threads.create(metadata=metadata)
         return {"thread_id": thread["thread_id"]}
     
     async def get_thread_state(self, thread_id: str) -> Dict[str, Any]:
