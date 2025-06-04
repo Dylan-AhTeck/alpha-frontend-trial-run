@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { streamText } from "ai";
-import { getDylanResponse } from "@/shared/utils/utils/dummy-data";
+import { getDylanResponse } from "@/shared/utils/dummy-data";
 
 // Type for assistant-ui content items
 interface ContentItem {

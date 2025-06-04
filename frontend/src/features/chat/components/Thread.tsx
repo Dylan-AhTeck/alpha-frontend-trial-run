@@ -204,7 +204,7 @@ const ThreadWelcomeSuggestions: FC = () => {
 
 const Composer: FC = () => {
   return (
-    <ComposerPrimitive.Root className="border border-gray-300 focus-within:border-aui-ring/20 flex w-full flex-wrap items-end rounded-lg bg-inherit px-2.5 shadow-sm transition-colors ease-in">
+    <ComposerPrimitive.Root className="border focus-within:border-aui-ring/20 flex w-full flex-wrap items-end rounded-lg bg-inherit px-2.5 shadow-sm transition-colors ease-in">
       <ComposerPrimitive.Input
         autoFocus
         placeholder="Write a message..."
