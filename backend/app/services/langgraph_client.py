@@ -12,13 +12,12 @@ class LangGraphClient:
             pass
         self.assistant_id = "agent"  # Matches our LangGraph server configuration
     
-    async def create_thread(self, user_id: Optional[str] = None, user_email: Optional[str] = None) -> Dict[str, Any]:
+    async def create_thread(self, user_id: str, user_email: str) -> Dict[str, Any]:
         """Create a new thread in LangGraph with user metadata"""
-        metadata = {}
-        if user_id:
-            metadata["user_id"] = user_id
-        if user_email:
-            metadata["user_email"] = user_email
+        metadata = {
+            "user_id": user_id,
+            "user_email": user_email
+        }
             
         thread = await self.client.threads.create(metadata=metadata)
         return {"thread_id": thread["thread_id"]}
@@ -37,6 +36,33 @@ class LangGraphClient:
             print(f"[DEBUG] Deleted thread: {thread_id}")
         except Exception as e:
             raise Exception(f"Failed to delete thread: {e}")
+    
+    async def search_threads(self, limit: int = 50, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Search for threads with optional metadata filtering
+        
+        Args:
+            limit: Maximum number of threads to return
+            metadata_filter: Optional metadata filter (empty dict = all threads)
+            
+        Returns:
+            List of thread data dictionaries from LangGraph
+        """
+        try:
+            # Use the SDK's search method if available, otherwise fall back to direct client call
+            search_params = {
+                "limit": limit,
+                "metadata": metadata_filter or {}
+            }
+            
+            # Call the search endpoint through the SDK
+            threads_data = await self.client.threads.search(**search_params)
+            
+            # Return the raw thread data for processing by business logic layer
+            return threads_data if isinstance(threads_data, list) else []
+            
+        except Exception as e:
+            raise Exception(f"Failed to search threads: {e}")
     
     async def stream_messages(
         self, 

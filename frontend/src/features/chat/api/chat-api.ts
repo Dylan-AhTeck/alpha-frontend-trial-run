@@ -29,13 +29,19 @@ export interface ThreadState {
 /**
  * Create a new thread via our FastAPI backend
  */
-export async function createThread(): Promise<CreateThreadResponse> {
+export async function createThread(
+  user_id: string,
+  user_email: string
+): Promise<CreateThreadResponse> {
   const response = await fetch(`${API_BASE_URL}/api/threads`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      user_id,
+      user_email,
+    }),
   });
 
   if (!response.ok) {

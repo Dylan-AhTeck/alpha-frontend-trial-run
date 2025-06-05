@@ -41,8 +41,5 @@ export function useAssistantCloud() {
 
   return {
     cloud,
-    isReady: !loading && !!session && !!user && !!cloud,
-    isLoading: loading,
-    isAuthenticated: !!session && !!user,
   };
 }

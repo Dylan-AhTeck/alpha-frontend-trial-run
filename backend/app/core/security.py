@@ -1,17 +1,24 @@
+from app.models.security import SupabaseAuthUser
 import jwt
 from fastapi import HTTPException, status
-from typing import Dict, Any
+
 import logging
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-def verify_jwt_token(token: str) -> Dict[str, Any]:
-    """Verify Supabase JWT token using JWT secret"""
-    try:
-        logger.info(f"[DEBUG] Attempting to verify token with length: {len(token)}")
-        logger.info(f"[DEBUG] Token starts with: {token[:20]}...")
+
+def verify_jwt_token(token: str) -> SupabaseAuthUser:
+    """
+    Verify Supabase JWT token and return structured user object
+    
+    Returns:
+        SupabaseAuthUser: Structured user object with type safety
         
+    Raises:
+        HTTPException: If token is invalid, expired, or malformed
+    """
+    try:
         if not settings.supabase_jwt_secret:
             raise ValueError("SUPABASE_JWT_SECRET not configured")
             
@@ -24,24 +31,38 @@ def verify_jwt_token(token: str) -> Dict[str, Any]:
             issuer=settings.supabase_jwt_issuer
         )
 
-        logger.info(f"[DEBUG] Token verified successfully for user: {payload.get('sub', 'unknown')}")
-        return payload
+        # Validate required fields before creating SupabaseAuthUser
+        if not payload.get("sub"):
+            raise ValueError("Missing required 'sub' claim in JWT")
+        if not payload.get("email"):
+            raise ValueError("Missing required 'email' claim in JWT")
+        if not payload.get("exp"):
+            raise ValueError("Missing required 'exp' claim in JWT")
+
+        # Create structured user object
+        auth_user = SupabaseAuthUser(**payload)
+        
+        return auth_user
+        
     except jwt.ExpiredSignatureError:
-        logger.error("[DEBUG] Token has expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except jwt.InvalidTokenError as e:
-        logger.error(f"[DEBUG] Invalid token error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token validation failed: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except Exception as e:
-        logger.error(f"[DEBUG] Token validation failed with exception: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Token validation failed: {str(e)}",

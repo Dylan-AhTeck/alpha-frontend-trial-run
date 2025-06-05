@@ -1,3 +1,4 @@
+from app.models.security import SupabaseAuthUser
 from fastapi import HTTPException, Depends
 from typing import Dict, Any
 from app.core.dependencies import get_current_user
@@ -5,7 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def require_admin(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def require_admin(current_user: SupabaseAuthUser = Depends(get_current_user)) -> Dict[str, Any]:
     """
     Dependency that ensures user has admin role in JWT.
     
@@ -18,7 +19,7 @@ async def require_admin(current_user: Dict[str, Any] = Depends(get_current_user)
     Raises:
         HTTPException: 403 if user is not admin
     """
-    user_role = current_user.get("user_role")
+    user_role = current_user.role
     logger.info(f"[ADMIN_CHECK] User role: {user_role}")
     
     if user_role != "admin":

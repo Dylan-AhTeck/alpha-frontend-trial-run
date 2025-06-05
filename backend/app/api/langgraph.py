@@ -9,7 +9,8 @@ from app.services.langgraph_client import langgraph_client
 router = APIRouter(prefix="/api", tags=["langgraph"])
 
 class CreateThreadRequest(BaseModel):
-    pass  # No additional params needed
+    user_id: str
+    user_email: str
 
 class CreateThreadResponse(BaseModel):
     thread_id: str
@@ -21,7 +22,7 @@ class SendMessageRequest(BaseModel):
 async def create_thread(request: CreateThreadRequest):
     """Create a new thread"""
     try:
-        result = await langgraph_client.create_thread()
+        result = await langgraph_client.create_thread(request.user_id, request.user_email)
         return CreateThreadResponse(thread_id=result["thread_id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -38,14 +39,7 @@ async def get_thread_state(thread_id: str):
         print(f"[ERROR] Failed to get thread state for {thread_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/threads/{thread_id}")
-async def delete_thread(thread_id: str):
-    """Delete a thread"""
-    try:
-        await langgraph_client.delete_thread(thread_id)
-        return {"message": f"Thread {thread_id} deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/threads/{thread_id}/stream")
 async def stream_messages(thread_id: str, request: SendMessageRequest):

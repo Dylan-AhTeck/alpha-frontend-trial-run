@@ -21,7 +21,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-
       // Update state
       setSession(session);
       setUser(session?.user ?? null);
@@ -122,11 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        return data.role || null;
+        return data.user_role || null;
       } else {
         return null;
       }
-    } catch (error) {
+    } catch {
       return null;
     }
   };

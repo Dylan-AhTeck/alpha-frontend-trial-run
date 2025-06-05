@@ -14,6 +14,7 @@ import {
 } from "@assistant-ui/react-langgraph";
 import { chatApi } from "../api/chat-api";
 import { useAssistantCloud } from "../hooks/useAssistantCloud";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 // Custom LangGraph runtime hook
 const useChatLangGraphRuntime = () => {
@@ -66,15 +67,21 @@ const useChatLangGraphRuntime = () => {
 };
 
 export function ChatProvider({ children }: PropsWithChildren) {
-  const { cloud, isReady, isLoading } = useAssistantCloud();
+  const { cloud } = useAssistantCloud();
+  const { user } = useAuth();
 
-  // Configure the runtime with lazy thread creation
+  // Configure the runtime with lazy thread creation (hooks must be called unconditionally)
   const runtime = useCloudThreadListRuntime({
     cloud: cloud!,
     runtimeHook: useChatLangGraphRuntime,
     create: async () => {
+      // Check user availability at runtime
+      if (!user?.id || !user?.email) {
+        throw new Error("User must be authenticated to create threads");
+      }
+
       try {
-        const response = await chatApi.createThread();
+        const response = await chatApi.createThread(user.id, user.email);
         return { externalId: response.thread_id };
       } catch (error) {
         throw error;
@@ -85,17 +92,7 @@ export function ChatProvider({ children }: PropsWithChildren) {
     },
   });
 
-  // Don't render the provider if user is not authenticated
-  if (!isReady) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white/70">
-          {isLoading ? "Loading assistant..." : "Please sign in to continue"}
-        </div>
-      </div>
-    );
-  }
-
+  // Render the provider - user is guaranteed to be defined here
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       {children}

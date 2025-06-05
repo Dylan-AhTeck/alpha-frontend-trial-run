@@ -1,3 +1,4 @@
+from app.models.security import SupabaseAuthUser
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Dict, Any
 from app.core.dependencies import get_current_user
@@ -12,14 +13,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 @router.post("/token")
-async def create_assistant_token(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def create_assistant_token(current_user: SupabaseAuthUser = Depends(get_current_user)):
     """Create an assistant-ui cloud token for the authenticated user"""
     try:
         logger.info(f"[DEBUG] Current user JWT payload: {current_user}")
-        logger.info(f"[DEBUG] Available keys in current_user: {list(current_user.keys())}")
         
         # Supabase JWT uses 'sub' field for user ID, not 'user_id'
-        user_id = current_user.get("sub") or current_user.get("user_id")
+        user_id = current_user.id
         if not user_id:
             logger.error(f"[ERROR] No user ID found in JWT payload. Available keys: {list(current_user.keys())}")
             raise HTTPException(
@@ -76,7 +76,6 @@ async def create_assistant_token(current_user: Dict[str, Any] = Depends(get_curr
             
             try:
                 token_data = response.json()
-                logger.info(f"[DEBUG] Response JSON keys: {list(token_data.keys()) if isinstance(token_data, dict) else 'Not a dict'}")
                 logger.info(f"[DEBUG] Successfully created assistant token for user: {user_id}")
                 
                 if "token" not in token_data:

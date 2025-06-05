@@ -23,4 +23,4 @@ class NonBetaUserResponse(BaseModel):
 class UserInfo(BaseModel):
     user_id: str
     email: str
-    role: str 
+    user_role: Optional[str] = None

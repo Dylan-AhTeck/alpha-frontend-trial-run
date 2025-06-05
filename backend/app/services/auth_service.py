@@ -52,25 +52,6 @@ class AuthService:
                 "email_collected": "false"
             }
 
-    async def validate_user_token(self, token: str) -> Dict[str, Any]:
-        """Validate JWT token and return user info"""
-        try:
-            payload = verify_jwt_token(token)
-            return {
-                "user_id": payload.get("sub"),
-                "email": payload.get("email"),
-                "role": payload.get("role", "authenticated")
-            }
-        except HTTPException as e:
-            logger.error(f"Token validation failed: {e.detail}")
-            raise e
-        except Exception as e:
-            logger.error(f"Unexpected error during token validation: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
 
 # Global instance
 auth_service = AuthService() 

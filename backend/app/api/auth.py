@@ -1,3 +1,4 @@
+from app.models.security import SupabaseAuthUser
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Dict, Any, Optional
 from app.models.auth import EmailCheckRequest, EmailCheckResponse, NonBetaUserRequest, NonBetaUserResponse, UserInfo
@@ -40,15 +41,14 @@ async def handle_non_beta_request(request: NonBetaUserRequest, http_request: Req
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/me", response_model=UserInfo)
-async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def get_current_user_info(current_user: SupabaseAuthUser = Depends(get_current_user)):
     """Get current user information"""
     try:
-        logger.info(f"[DEBUG] Current user JWT payload: {current_user}")
         
         # Extract required fields from JWT
-        user_id = current_user.get("sub") or ""
-        email = current_user.get("email") or ""
-        user_role = current_user.get("user_role", "")
+        user_id = current_user.id
+        email = current_user.email
+        user_role = current_user.user_role
         
         logger.info(f"[DEBUG] Extracted - user_id: {user_id}, email: {email}, user_role: {user_role}")
         
@@ -60,7 +60,7 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(get_curre
         return UserInfo(
             user_id=user_id,
             email=email,
-            role=user_role
+            user_role=user_role
         )
     except Exception as e:
         logger.error(f"Error getting user info: {e}")
