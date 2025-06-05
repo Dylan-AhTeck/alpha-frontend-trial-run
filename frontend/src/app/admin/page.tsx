@@ -1,11 +1,9 @@
 "use client";
 
-import {
-  AdminLayout,
-  ThreadList,
-  ThreadDetails,
-  useAdminThreads,
-} from "@/features/admin";
+import { AdminLayout, ThreadList, ThreadDetails } from "@/features/admin";
+import { useAdminThreadsV2 } from "@/features/admin/hooks/useAdminThreadsV2";
+import { ErrorBoundary } from "@/shared/components/feedback/ErrorBoundary";
+import { useToast } from "@/shared/components/feedback/Toast";
 
 export default function AdminPage() {
   const {
@@ -24,7 +22,9 @@ export default function AdminPage() {
     handleLogout,
     handleBackToDashboard,
     fetchThreads,
-  } = useAdminThreads();
+  } = useAdminThreadsV2();
+
+  const { ToastContainer } = useToast();
 
   // Redirect if not authorized (handled by hook)
   if (!isAuthorized || !user) {
@@ -32,24 +32,44 @@ export default function AdminPage() {
   }
 
   return (
-    <AdminLayout
-      user={user}
-      onLogout={handleLogout}
-      onBackToDashboard={handleBackToDashboard}
-      onRefresh={fetchThreads}
-      loading={loading}
-    >
-      <ThreadList
-        threads={allThreads}
-        selectedThread={selectedThread}
-        loading={loading}
-        error={error}
-        deleting={deleting}
-        onThreadSelect={selectThread}
-        onThreadDelete={deleteThread}
+    <ErrorBoundary>
+      <AdminLayout
+        user={user}
+        onLogout={handleLogout}
+        onBackToDashboard={handleBackToDashboard}
         onRefresh={fetchThreads}
-      />
-      <ThreadDetails thread={selectedThread} />
-    </AdminLayout>
+        loading={loading}
+      >
+        <ErrorBoundary
+          fallback={
+            <div className="p-4 text-center">
+              <p className="text-destructive">Failed to load thread list</p>
+            </div>
+          }
+        >
+          <ThreadList
+            threads={allThreads}
+            selectedThread={selectedThread}
+            loading={loading}
+            error={error}
+            deleting={deleting}
+            onThreadSelect={selectThread}
+            onThreadDelete={deleteThread}
+            onRefresh={fetchThreads}
+          />
+        </ErrorBoundary>
+
+        <ErrorBoundary
+          fallback={
+            <div className="p-4 text-center">
+              <p className="text-destructive">Failed to load thread details</p>
+            </div>
+          }
+        >
+          <ThreadDetails thread={selectedThread} />
+        </ErrorBoundary>
+      </AdminLayout>
+      <ToastContainer />
+    </ErrorBoundary>
   );
 }

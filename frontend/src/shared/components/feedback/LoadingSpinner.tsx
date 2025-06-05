@@ -15,15 +15,33 @@ const sizeClasses = {
   lg: "w-8 h-8",
 };
 
-export default function LoadingSpinner({
+export function LoadingSpinner({
   size = "md",
   className,
   text,
 }: LoadingSpinnerProps) {
   return (
-    <div className={cn("flex items-center justify-center", className)}>
+    <div className={cn("flex items-center justify-center gap-2", className)}>
       <Loader2 className={cn("animate-spin", sizeClasses[size])} />
-      {text && <span className="ml-2 text-sm text-white/70">{text}</span>}
+      {text && <span className="text-sm text-muted-foreground">{text}</span>}
     </div>
   );
+}
+
+/**
+ * Full-page loading spinner
+ */
+export function PageLoadingSpinner({ text = "Loading..." }: { text?: string }) {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <LoadingSpinner size="lg" text={text} />
+    </div>
+  );
+}
+
+/**
+ * Inline loading spinner for buttons
+ */
+export function ButtonLoadingSpinner() {
+  return <Loader2 className="w-4 h-4 animate-spin" />;
 }

@@ -1,7 +1,8 @@
 // Chat API - API functions for chat/assistant functionality
 import { LangChainMessage } from "@assistant-ui/react-langgraph";
+import { config } from "@/lib/env";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = config.NEXT_PUBLIC_API_BASE_URL;
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -26,16 +27,9 @@ export interface ThreadState {
 }
 
 /**
- * Generate a pending thread ID for frontend state management
- */
-function generatePendingThreadId(): string {
-  return `pending_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
  * Create a new thread via our FastAPI backend
  */
-async function createThread(): Promise<CreateThreadResponse> {
+export async function createThread(): Promise<CreateThreadResponse> {
   const response = await fetch(`${API_BASE_URL}/api/threads`, {
     method: "POST",
     headers: {
@@ -54,7 +48,7 @@ async function createThread(): Promise<CreateThreadResponse> {
 /**
  * Get thread state from the backend
  */
-async function getThreadState(threadId: string): Promise<ThreadState> {
+export async function getThreadState(threadId: string): Promise<ThreadState> {
   const response = await fetch(`${API_BASE_URL}/api/threads/${threadId}`, {
     method: "GET",
     headers: {
@@ -72,7 +66,7 @@ async function getThreadState(threadId: string): Promise<ThreadState> {
 /**
  * Delete a thread via our FastAPI backend
  */
-async function deleteThread(threadId: string): Promise<void> {
+export async function deleteThread(threadId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/threads/${threadId}`, {
     method: "DELETE",
     headers: {
@@ -88,7 +82,7 @@ async function deleteThread(threadId: string): Promise<void> {
 /**
  * Stream messages to a thread via our FastAPI backend
  */
-async function streamMessages(
+export async function streamMessages(
   threadId: string,
   messages: LangChainMessage[]
 ): Promise<ReadableStream<Uint8Array>> {
@@ -117,7 +111,7 @@ async function streamMessages(
 /**
  * Helper function to parse Server-Sent Events (SSE) from stream
  */
-async function* parseSSEStream(
+export async function* parseSSEStream(
   stream: ReadableStream<Uint8Array>
 ): AsyncGenerator<unknown, void, unknown> {
   const reader = stream.getReader();
@@ -142,7 +136,7 @@ async function* parseSSEStream(
           try {
             yield JSON.parse(data);
           } catch {
-            console.warn("Failed to parse SSE data:", data);
+            // Silent fail - malformed SSE data
           }
         }
       }
@@ -155,12 +149,12 @@ async function* parseSSEStream(
 /**
  * Function to fetch assistant-ui token from our backend
  */
-async function fetchAssistantToken(
+export async function fetchAssistantToken(
   supabaseToken: string
 ): Promise<string | null> {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/assistant/token`,
+      `${config.NEXT_PUBLIC_API_BASE_URL}/api/assistant/token`,
       {
         method: "POST",
         headers: {
@@ -171,26 +165,18 @@ async function fetchAssistantToken(
     );
 
     if (!response.ok) {
-      console.error(
-        "[ERROR] Failed to fetch assistant token:",
-        response.status,
-        response.statusText
-      );
       return null;
     }
 
     const data = await response.json();
-    console.log("[DEBUG] Successfully fetched assistant token from backend");
     return data.token;
-  } catch (error) {
-    console.error("[ERROR] Error fetching assistant token:", error);
+  } catch {
     return null;
   }
 }
 
-// Export as an object for cleaner imports
+// Export as an object for cleaner imports (backward compatibility)
 export const chatApi = {
-  generatePendingThreadId,
   createThread,
   getThreadState,
   deleteThread,

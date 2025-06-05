@@ -72,7 +72,6 @@ export default function LoginForm() {
           throw new Error("Unexpected user status received");
       }
     } catch (error) {
-      console.error("Email check error:", error);
       setError("Failed to verify email. Please try again.");
     } finally {
       setIsLoading(false);
@@ -100,7 +99,6 @@ export default function LoginForm() {
         return;
       }
     } catch (error: unknown) {
-      console.error("Authentication error:", error);
       if (error instanceof Error) {
         // Handle specific Supabase error cases
         if (error.message.includes("Invalid login credentials")) {
@@ -126,7 +124,6 @@ export default function LoginForm() {
       // Show success message
       alert("Thanks! We'll notify you when beta spots open up.");
     } catch (error) {
-      console.error("Beta request error:", error);
       setError("Failed to submit request. Please try again.");
     } finally {
       setIsLoading(false);
@@ -142,7 +139,6 @@ export default function LoginForm() {
       // Success - show email confirmation step
       setStep("email-confirmation");
     } catch (error: unknown) {
-      console.error("Resend verification error:", error);
       const errorMessage =
         error instanceof Error
           ? error.message

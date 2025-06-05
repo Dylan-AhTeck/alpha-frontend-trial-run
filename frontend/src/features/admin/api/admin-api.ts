@@ -3,8 +3,9 @@
 
 import { Session } from "@supabase/supabase-js";
 import { BackendThread, Message, ThreadWithUser } from "@/shared/types";
+import { config } from "@/lib/env";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = config.NEXT_PUBLIC_API_BASE_URL;
 
 /**
  * Transform a backend message to frontend format
@@ -106,22 +107,6 @@ export async function deleteThread(
     throw new Error(
       `Failed to delete thread from backend: ${response.status} - ${errorText}`
     );
-  }
-
-  // Step 2: Delete from Assistant UI Cloud using official client
-  try {
-    const { AssistantCloud } = await import("@assistant-ui/react");
-    const cloud = new AssistantCloud({
-      baseUrl: process.env.NEXT_PUBLIC_ASSISTANT_CLOUD_URL!,
-      authToken: async () => session.access_token,
-    });
-
-    await cloud.threads.delete(threadId);
-    console.log("Successfully deleted thread from Assistant UI Cloud");
-  } catch (error) {
-    console.warn("Failed to delete thread from Assistant UI Cloud:", error);
-    // Don't throw error here since backend deletion succeeded
-    // This is a best-effort cleanup
   }
 }
 

@@ -1,5 +1,5 @@
-// Admin Feature - Clean Export API
-// This file provides a centralized export for all admin functionality
+// Admin Feature Exports
+// This file provides a clean API for the admin feature
 
 // Components
 export { default as AdminLayout } from "./components/AdminLayout";
@@ -7,19 +7,16 @@ export { default as ThreadList } from "./components/ThreadList";
 export { default as ThreadDetails } from "./components/ThreadDetails";
 
 // Hooks
-export { useAdminThreads } from "./hooks/useAdminThreads";
-
-// API Functions
-export * as adminAPI from "./api/admin-api";
+export { useAdminThreadsV2 } from "./hooks/useAdminThreadsV2";
+export {
+  useAdminThreadsQuery,
+  useDeleteThreadMutation,
+  useBulkDeleteThreadsMutation,
+  adminQueryKeys,
+} from "./hooks/useAdminThreadsQuery";
 
 // Types
-export type {
-  AdminState,
-  AdminActions,
-  AdminLayoutProps,
-  ThreadListProps,
-  ThreadDetailsProps,
-  ThreadFilters,
-  ThreadSortOptions,
-  AdminThreadsResponse,
-} from "./types/admin.types";
+export type * from "./types/admin.types";
+
+// API
+export * from "./api/admin-api";

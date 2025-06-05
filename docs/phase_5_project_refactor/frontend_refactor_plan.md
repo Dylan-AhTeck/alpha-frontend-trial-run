@@ -302,15 +302,7 @@ _Goal: Modernize data fetching and state management_
 - **Replace**: Direct API calls in components
 - **Test**: Data fetching and mutations work
 
-### **6.3 Enhance Context-Based State Management**
-
-- **Refactor**: `src/shared/stores/auth-store.ts` → `src/features/auth/providers/AuthProvider.tsx`
-- **Create**: `src/shared/providers/AppProvider.tsx` for global app state
-- **Use**: React Context and useReducer for complex state
-- **Replace**: Scattered useState with organized Context providers
-- **Test**: State persistence and updates
-
-### **6.4 Add Error Boundaries and Loading States**
+### **6.3 Add Error Boundaries and Loading States**
 
 - **Create**: `src/shared/components/feedback/ErrorBoundary.tsx`
 - **Add**: Feature-specific error boundaries

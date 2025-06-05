@@ -9,7 +9,7 @@ import { PlusIcon, MessageCircle, Trash2Icon } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { Button } from "@/shared/components/ui/button";
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { TooltipIconButton } from "@/features/chat/components/tooltip-icon-button";
 import { getThreadState } from "@/features/chat/api/chat-api";
 
 export const ThreadList: FC = () => {

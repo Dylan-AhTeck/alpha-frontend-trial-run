@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Check, X } from "lucide-react";
+import { config } from "@/lib/env";
 
 interface PasswordRequirement {
   text: string;
@@ -62,7 +63,7 @@ export default function RegisterForm() {
     try {
       // Check beta status BEFORE signup
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/check-user`,
+        `${config.NEXT_PUBLIC_API_BASE_URL}/api/auth/check-user`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -84,7 +85,6 @@ export default function RegisterForm() {
         setStep("waitlist");
       }
     } catch (error: unknown) {
-      console.error("Email validation error:", error);
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -108,7 +108,6 @@ export default function RegisterForm() {
       await signUp(email, password);
       setStep("success");
     } catch (error: unknown) {
-      console.error("Registration error:", error);
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -125,7 +124,7 @@ export default function RegisterForm() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/non-beta-request`,
+        `${config.NEXT_PUBLIC_API_BASE_URL}/api/auth/non-beta-request`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -144,7 +143,6 @@ export default function RegisterForm() {
       );
       router.push("/login");
     } catch (error: unknown) {
-      console.error("Waitlist error:", error);
       const errorMessage =
         error instanceof Error
           ? error.message

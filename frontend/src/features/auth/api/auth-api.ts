@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
 import { EmailCheckResponse } from "../types/auth.types";
+import { config } from "@/lib/env";
 
 // =============================================================================
 // AUTH API FUNCTIONS
@@ -12,7 +13,7 @@ export async function checkUserStatus(
   email: string
 ): Promise<EmailCheckResponse> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/check-user`,
+    `${config.NEXT_PUBLIC_API_BASE_URL}/api/auth/check-user`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -32,7 +33,7 @@ export async function checkUserStatus(
  */
 export async function requestBetaAccess(email: string): Promise<void> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/non-beta-request`,
+    `${config.NEXT_PUBLIC_API_BASE_URL}/api/auth/non-beta-request`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -53,7 +54,7 @@ export async function resendEmailVerification(email: string): Promise<void> {
     type: "signup",
     email: email,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed`,
+      emailRedirectTo: `${config.NEXT_PUBLIC_APP_URL}/confirmed`,
     },
   });
 
@@ -70,7 +71,7 @@ export async function fetchUserRole(
 ): Promise<string | null> {
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/me`,
+      `${config.NEXT_PUBLIC_API_BASE_URL}/api/auth/me`,
       {
         method: "GET",
         headers: {
@@ -84,11 +85,9 @@ export async function fetchUserRole(
       const data = await response.json();
       return data.role || null;
     } else {
-      console.error("Failed to fetch user role:", response.status);
       return null;
     }
   } catch (error) {
-    console.error("Error fetching user role:", error);
     return null;
   }
 }

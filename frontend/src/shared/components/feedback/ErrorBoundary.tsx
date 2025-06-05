@@ -1,99 +1,64 @@
 // Error Boundary Component - Catches and handles errors gracefully
 "use client";
 
-import React, { Component, ErrorInfo } from "react";
+import React, { Component, ReactNode } from "react";
 import { Button } from "@/shared/components/ui/button";
-import { AlertTriangle, RefreshCw } from "lucide-react";
 
-interface ErrorBoundaryState {
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
   hasError: boolean;
   error?: Error;
-  errorInfo?: ErrorInfo;
 }
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: React.ComponentType<{
-    error?: Error;
-    resetError: () => void;
-  }>;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return {
-      hasError: true,
-      error,
-    };
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.setState({
-      error,
-      errorInfo,
-    });
-
-    // Log error to console in development
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
-
-    // Call custom error handler if provided
-    this.props.onError?.(error, errorInfo);
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
   }
 
-  resetError = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+  handleReset = () => {
+    this.setState({ hasError: false, error: undefined });
   };
 
   render() {
     if (this.state.hasError) {
-      // Use custom fallback if provided
       if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback;
-        return (
-          <FallbackComponent
-            error={this.state.error}
-            resetError={this.resetError}
-          />
-        );
+        return this.props.fallback;
       }
 
-      // Default error UI
       return (
-        <div className="min-h-[400px] flex items-center justify-center p-6">
-          <div className="text-center max-w-md">
-            <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-white mb-2">
+        <div className="flex flex-col items-center justify-center min-h-[200px] p-6 border border-destructive/20 rounded-lg bg-destructive/5">
+          <div className="text-center space-y-4">
+            <h2 className="text-lg font-semibold text-destructive">
               Something went wrong
             </h2>
-            <p className="text-white/70 mb-6">
-              We&apos;re sorry, but something unexpected happened. Please try
-              again.
+            <p className="text-sm text-muted-foreground max-w-md">
+              {this.state.error?.message ||
+                "An unexpected error occurred. Please try again."}
             </p>
-            <Button
-              onClick={this.resetError}
-              variant="outline"
-              className="bg-white/10 border-white/20 text-white hover:bg-white hover:text-black"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Try Again
-            </Button>
-            {process.env.NODE_ENV === "development" && this.state.error && (
-              <details className="mt-6 text-left">
-                <summary className="text-sm text-white/50 cursor-pointer mb-2">
-                  Error Details (Development)
-                </summary>
-                <pre className="text-xs text-red-300 bg-red-900/20 p-3 rounded border overflow-auto">
-                  {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack}
-                </pre>
-              </details>
-            )}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={this.handleReset}>
+                Try again
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+              >
+                Reload page
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -102,5 +67,3 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;

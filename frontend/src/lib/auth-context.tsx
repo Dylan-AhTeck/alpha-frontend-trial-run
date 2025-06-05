@@ -5,6 +5,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { AuthState } from "@/shared/types";
 import { supabase } from "./supabase/client";
+import { config } from "@/lib/env";
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
@@ -20,10 +21,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.email);
 
       // Update state
-      console.log("Session:", session);
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -68,7 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         case "TOKEN_REFRESHED":
           // Token was refreshed - no redirect needed, just update state
           setLoading(false);
-          console.log("Token refreshed successfully");
 
           break;
 
@@ -95,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/confirmed`,
+        emailRedirectTo: `${config.NEXT_PUBLIC_APP_URL}/confirmed`,
       },
     });
     if (error) throw error;
@@ -112,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserRole = async (accessToken: string): Promise<string | null> => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/me`,
+        `${config.NEXT_PUBLIC_API_BASE_URL}/api/auth/me`,
         {
           method: "GET",
           headers: {
@@ -126,11 +124,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         return data.role || null;
       } else {
-        console.error("Failed to fetch user role:", response.status);
         return null;
       }
     } catch (error) {
-      console.error("Error fetching user role:", error);
       return null;
     }
   };
