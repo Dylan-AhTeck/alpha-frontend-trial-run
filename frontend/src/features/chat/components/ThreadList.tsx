@@ -77,36 +77,38 @@ const ThreadListItemTitle: FC = () => {
 };
 
 const ThreadListItemMetadata: FC = () => {
-  const threadId = useThreadListItem((state) => state.threadId);
   const externalId = useThreadListItem((state) => state.externalId);
   const [relativeTime, setRelativeTime] = useState<string>("Today");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchThreadData = async () => {
-      const backendThreadId = externalId || threadId;
-
-      if (!backendThreadId) {
+      // Only use external ID (actual LangGraph UUID), not local assistant-ui IDs
+      if (!externalId) {
         setIsLoading(false);
+        setRelativeTime("Today");
         return;
       }
 
       try {
-        const state = await chatApi.getThreadState(backendThreadId);
+        const state = await chatApi.getThreadState(externalId);
         const messages = state.values.messages || [];
 
         let lastMessageTime: Date;
 
         if (messages.length > 0) {
-          const lastMessage = messages[messages.length - 1];
+          const lastMessage = messages[messages.length - 1] as Record<
+            string,
+            unknown
+          >;
           const possibleTime =
-            (lastMessage as any).timestamp ||
-            (lastMessage as any).created_at ||
-            (lastMessage as any).createdAt ||
-            (lastMessage as any).time;
+            lastMessage.timestamp ||
+            lastMessage.created_at ||
+            lastMessage.createdAt ||
+            lastMessage.time;
 
           if (possibleTime) {
-            lastMessageTime = new Date(possibleTime);
+            lastMessageTime = new Date(possibleTime as string);
           } else {
             lastMessageTime = new Date();
           }
@@ -116,7 +118,7 @@ const ThreadListItemMetadata: FC = () => {
 
         const timeDisplay = formatSimpleRelativeTime(lastMessageTime);
         setRelativeTime(timeDisplay);
-      } catch (error) {
+      } catch {
         setRelativeTime("Today");
       } finally {
         setIsLoading(false);
@@ -124,7 +126,7 @@ const ThreadListItemMetadata: FC = () => {
     };
 
     fetchThreadData();
-  }, [threadId, externalId]);
+  }, [externalId]);
 
   const formatSimpleRelativeTime = (date: Date | string | undefined) => {
     if (!date) return "Today";

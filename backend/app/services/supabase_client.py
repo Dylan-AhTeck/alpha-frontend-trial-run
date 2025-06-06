@@ -1,8 +1,11 @@
-from typing import Optional
 import logging
-from supabase import create_client, Client
+from typing import Optional
+
+from supabase import Client, create_client
+
 from app.core.config import settings
-from app.core.exceptions import ConfigurationError, ExternalServiceError, DatabaseError
+from app.core.exceptions import (ConfigurationError, DatabaseError,
+                                 ExternalServiceError)
 
 logger = logging.getLogger(__name__)
 
@@ -118,5 +121,4 @@ class SupabaseClient:
         """Get the admin Supabase client instance"""
         return self.admin_client
 
-# Global instance
-supabase_client = SupabaseClient() 
+ 

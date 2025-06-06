@@ -1,13 +1,21 @@
-from typing import Optional, Dict, Any
-from fastapi import HTTPException, status
-from app.services.supabase_client import supabase_client
-from app.core.security import verify_jwt_token
 import logging
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 class AuthService:
-    def __init__(self):
+    def __init__(self, supabase_client=None):
+        """
+        Initialize AuthService with dependency injection.
+        
+        Args:
+            supabase_client: SupabaseClient instance for database operations
+        """
+        # Import here to avoid circular dependencies
+        if supabase_client is None:
+            from app.services.supabase_client import SupabaseClient
+            supabase_client = SupabaseClient()
+        
         self.supabase = supabase_client
 
     async def check_user_status(self, email: str) -> Dict[str, Any]:
@@ -53,5 +61,4 @@ class AuthService:
             }
 
 
-# Global instance
-auth_service = AuthService() 
+ 

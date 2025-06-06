@@ -1,10 +1,11 @@
-from app.models.security import SupabaseAuthUser
+import logging
+
 import jwt
 from fastapi import HTTPException, status
 
-import logging
 from app.core.config import settings
-from app.core.exceptions import ConfigurationError, AuthenticationError
+from app.core.exceptions import AuthenticationError, ConfigurationError
+from app.models.security import SupabaseAuthUser
 
 logger = logging.getLogger(__name__)
 

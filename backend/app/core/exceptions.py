@@ -6,9 +6,9 @@ handling throughout the application, enabling better error handling, logging,
 and API responses.
 """
 
-from typing import Optional, Dict, Any
 import uuid
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 
 class BaseAppException(Exception):
@@ -246,25 +246,43 @@ class RateLimitError(BaseAppException):
         )
 
 
+class SecurityError(BaseAppException):
+    """Raised when security violations are detected"""
+    
+    def __init__(
+        self,
+        message: str = "Security violation detected",
+        violation_type: Optional[str] = None,
+        **kwargs
+    ):
+        context = kwargs.get("context", {})
+        if violation_type:
+            context["violation_type"] = violation_type
+        
+        super().__init__(
+            message=message,
+            status_code=400,
+            error_code="SECURITY_ERROR",
+            context=context,
+            **{k: v for k, v in kwargs.items() if k != "context"}
+        )
+
+
 # Convenience aliases for common HTTP errors
 class BadRequestError(ValidationError):
     """Alias for ValidationError with 400 status"""
-    pass
 
 
 class UnauthorizedError(AuthenticationError):
     """Alias for AuthenticationError with 401 status"""
-    pass
 
 
 class ForbiddenError(AuthorizationError):
     """Alias for AuthorizationError with 403 status"""
-    pass
 
 
 class NotFoundError(ResourceNotFoundError):
     """Alias for ResourceNotFoundError with 404 status"""
-    pass
 
 
 class InternalServerError(BaseAppException):

@@ -1,20 +1,26 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
 import logging
 import traceback
-from datetime import datetime
 import uuid
+from datetime import datetime
 
-from app.api.langgraph import router as langgraph_router
-from app.api.auth import router as auth_router
-from app.api.assistant import router as assistant_router
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 from app.api.admin import router as admin_router
+from app.api.assistant import router as assistant_router
+from app.api.auth import router as auth_router
+from app.api.langgraph import router as langgraph_router
 from app.core.config import settings
 from app.core.exceptions import BaseAppException, InternalServerError
-from app.models.error import ErrorResponse, ErrorDetail
+# Import security middleware
+from app.core.middleware import (RequestSizeMiddleware,
+                                 RequestTimeoutMiddleware,
+                                 SecurityHeadersMiddleware,
+                                 SecurityLoggingMiddleware,
+                                 TrustedProxyMiddleware)
+from app.models.error import ErrorDetail, ErrorResponse
 
 # Create FastAPI app
 app = FastAPI(
@@ -197,6 +203,34 @@ app.add_middleware(
     allow_methods=settings.cors_allow_methods,
     allow_headers=settings.cors_allow_headers,
 )
+
+# Add security middleware (order matters - most specific to most general)
+# 1. Trusted proxy handling (must be first to sanitize headers)
+app.add_middleware(
+    TrustedProxyMiddleware,
+    trusted_proxies=[]  # Add trusted proxy IPs here in production
+)
+
+# 2. Request size limiting (early rejection of oversized requests)
+app.add_middleware(
+    RequestSizeMiddleware,
+    max_size=10 * 1024 * 1024  # 10MB limit
+)
+
+# 3. Security headers (applies to all responses)
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    environment=settings.environment
+)
+
+# 4. Request timeout protection
+app.add_middleware(
+    RequestTimeoutMiddleware,
+    timeout=30.0  # 30 seconds
+)
+
+# 5. Security logging (should be last to catch everything)
+app.add_middleware(SecurityLoggingMiddleware)
 
 # Include routers
 app.include_router(auth_router)

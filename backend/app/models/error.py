@@ -2,9 +2,9 @@
 Error response models for consistent API error formatting.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel
-from datetime import datetime
 
 
 class ErrorDetail(BaseModel):

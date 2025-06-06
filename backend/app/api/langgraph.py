@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Dict, Any
 import json
 import logging
+from typing import Any, Dict, List
 
-from app.services.langgraph_client import langgraph_client
-from app.core.exceptions import BaseAppException, InternalServerError
+from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+from app.core.dependencies import get_langgraph_client
+from app.services.langgraph_client import LangGraphClient
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["langgraph"])
@@ -22,37 +23,33 @@ class SendMessageRequest(BaseModel):
     messages: List[Dict[str, Any]]
 
 @router.post("/threads", response_model=CreateThreadResponse)
-async def create_thread(request: CreateThreadRequest):
+async def create_thread(
+    request: CreateThreadRequest,
+    langgraph_client: LangGraphClient = Depends(get_langgraph_client)
+):
     """Create a new thread"""
-    try:
-        result = await langgraph_client.create_thread(request.user_id, request.user_email)
-        return CreateThreadResponse(thread_id=result["thread_id"])
-    except BaseAppException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
-    except Exception as e:
-        error = InternalServerError(f"Failed to create thread: {e}")
-        raise HTTPException(status_code=error.status_code, detail=error.message)
+    result = await langgraph_client.create_thread(request.user_id, request.user_email)
+    return CreateThreadResponse(thread_id=result["thread_id"])
 
 @router.get("/threads/{thread_id}")
-async def get_thread_state(thread_id: str):
+async def get_thread_state(
+    thread_id: str,
+    langgraph_client: LangGraphClient = Depends(get_langgraph_client)
+):
     """Get thread state"""
     logger.debug("Getting thread state", extra={"thread_id": thread_id})
-    try:
-        state = await langgraph_client.get_thread_state(thread_id)
-        logger.debug("Successfully retrieved thread state", extra={"thread_id": thread_id})
-        return state
-    except BaseAppException as e:
-        logger.error("Failed to get thread state", extra={"thread_id": thread_id, "error": str(e)})
-        raise HTTPException(status_code=e.status_code, detail=e.message)
-    except Exception as e:
-        logger.error("Failed to get thread state", extra={"thread_id": thread_id, "error": str(e)})
-        error = InternalServerError(f"Failed to get thread state: {e}")
-        raise HTTPException(status_code=error.status_code, detail=error.message)
+    state = await langgraph_client.get_thread_state(thread_id)
+    logger.debug("Successfully retrieved thread state", extra={"thread_id": thread_id})
+    return state
 
 
 
 @router.post("/threads/{thread_id}/stream")
-async def stream_messages(thread_id: str, request: SendMessageRequest):
+async def stream_messages(
+    thread_id: str, 
+    request: SendMessageRequest,
+    langgraph_client: LangGraphClient = Depends(get_langgraph_client)
+):
     """Stream messages with LangGraph"""
     
     async def event_stream():

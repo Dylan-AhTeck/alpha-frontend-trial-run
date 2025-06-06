@@ -4,8 +4,8 @@
 // Components
 export { Thread } from "./components/Thread";
 export { default as ThreadList } from "./components/ThreadList";
-export { TooltipIconButton } from "./components/tooltip-icon-button";
-export { MarkdownText } from "./components/markdown-text";
+export { TooltipIconButton } from "./components/TooltipIconButton";
+export { MarkdownText } from "./components/MarkdownText";
 
 // Providers
 export { ChatProvider } from "./providers/ChatProvider";

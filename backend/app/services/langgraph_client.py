@@ -1,8 +1,8 @@
-from typing import AsyncGenerator, Dict, Any, List, Optional
-import json
 import logging
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from langgraph_sdk import get_client
+
 from app.core.config import settings
 from app.core.exceptions import ExternalServiceError
 
@@ -10,10 +10,13 @@ logger = logging.getLogger(__name__)
 
 class LangGraphClient:
     def __init__(self):
-        self.client = get_client(url=settings.langgraph_api_url)
         if settings.langgraph_api_key:
-            # TODO: Add API key support when available
-            pass
+            logger.info("Using API key for LangGraph client")
+            self.client = get_client(url=settings.langgraph_api_url, api_key=settings.langgraph_api_key)
+        else:
+            logger.info("Using local LangGraph client")
+            self.client = get_client(url=settings.langgraph_api_url)
+
         self.assistant_id = settings.langgraph_assistant_id
     
     async def create_thread(self, user_id: str, user_email: str) -> Dict[str, Any]:
@@ -127,5 +130,4 @@ class LangGraphClient:
             })
         return converted
 
-# Global client instance
-langgraph_client = LangGraphClient() 
+ 

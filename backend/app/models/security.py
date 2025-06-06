@@ -1,6 +1,8 @@
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
 
 class AppMetadata(BaseModel):
     """App metadata from Supabase JWT"""

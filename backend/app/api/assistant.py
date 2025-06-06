@@ -1,13 +1,14 @@
-from app.models.security import SupabaseAuthUser
-from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import Dict, Any
-from app.core.dependencies import get_current_user
-from app.core.config import settings
-from app.core.exceptions import BaseAppException, ValidationError, ExternalServiceError, ConfigurationError, InternalServerError
-import requests
 import logging
 import traceback
 
+import requests
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.config import settings
+from app.core.dependencies import get_current_user
+from app.core.exceptions import (BaseAppException, ConfigurationError,
+                                 InternalServerError, ValidationError)
+from app.models.security import SupabaseAuthUser
 
 logger = logging.getLogger(__name__)
 

@@ -10,6 +10,3 @@ pyjwt==2.10.1
 cryptography==45.0.3
 email-validator==2.2.0
 requests==2.31.0 
-langgraph
-langgraph-cli
-langgraph-cli[inmem]

@@ -28,7 +28,7 @@ async def call_model(state: State, config: RunnableConfig) -> dict:
     """Call OpenAI GPT-4o-mini with the conversation messages."""
     
     # Get API key and convert to SecretStr if present
-    api_key = "***REMOVED***"
+    api_key = os.getenv("OPENAI_API_KEY")
     
     secret_key = SecretStr(api_key) if api_key is not None else None
     

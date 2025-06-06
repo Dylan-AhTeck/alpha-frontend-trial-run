@@ -1,15 +1,27 @@
-from typing import List, Optional
-from datetime import datetime
 import logging
-from app.models.admin import Thread, ThreadSummary, ThreadDetails, UserSummary, MessageResponse, AdminStatsResponse
+from datetime import datetime
+from typing import List, Optional
+
 from app.core.config import settings
-from app.services.langgraph_client import langgraph_client
-from app.core.exceptions import ExternalServiceError, InternalServerError
+from app.core.exceptions import ExternalServiceError
+from app.models.admin import MessageResponse, Thread, ThreadDetails
 
 logger = logging.getLogger(__name__)
 
 class AdminService:
-    def __init__(self):
+    def __init__(self, langgraph_client=None):
+        """
+        Initialize AdminService with dependency injection.
+        
+        Args:
+            langgraph_client: LangGraphClient instance for AI operations
+        """
+        # Import here to avoid circular dependencies
+        if langgraph_client is None:
+            from app.services.langgraph_client import LangGraphClient
+            langgraph_client = LangGraphClient()
+            
+        self.langgraph_client = langgraph_client
         self.assistant_ui_cloud_url = settings.assistant_ui_cloud_url
         self.assistant_ui_api_key = settings.assistant_api_key
 
@@ -22,7 +34,7 @@ class AdminService:
             logger.info("[ADMIN] Fetching all user threads via LangGraph client")
             
             # Use the centralized client method instead of direct HTTP calls
-            threads_data = await langgraph_client.search_threads()
+            threads_data = await self.langgraph_client.search_threads()
             
             logger.info(f"[ADMIN] Retrieved {len(threads_data)} threads from LangGraph client")
             
@@ -108,7 +120,7 @@ class AdminService:
             logger.info(f"[ADMIN] Getting thread details for: {thread_id}")
             
             # Use the centralized client method
-            thread_state = await langgraph_client.get_thread_state(thread_id)
+            thread_state = await self.langgraph_client.get_thread_state(thread_id)
             
             # Process the thread state into ThreadDetails
             raw_messages = thread_state.get("values", {}).get("messages", [])
@@ -169,7 +181,7 @@ class AdminService:
             logger.info(f"[ADMIN] Admin {admin_user_id} deleting thread: {thread_id}")
             
             # Use the centralized client method
-            await langgraph_client.delete_thread(thread_id)
+            await self.langgraph_client.delete_thread(thread_id)
             
             logger.info(f"[ADMIN_AUDIT] Thread {thread_id} successfully deleted by admin {admin_user_id}")
             return True
@@ -182,5 +194,4 @@ class AdminService:
                 context={"thread_id": thread_id, "admin_user_id": admin_user_id}
             )
 
-# Create singleton instance
-admin_service = AdminService() 
+ 

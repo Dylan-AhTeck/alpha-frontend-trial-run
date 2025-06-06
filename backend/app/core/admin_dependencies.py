@@ -1,8 +1,9 @@
-from app.models.security import SupabaseAuthUser
-from fastapi import HTTPException, Depends
-from typing import Dict, Any
-from app.core.dependencies import get_current_user
 import logging
+
+from fastapi import Depends, HTTPException
+
+from app.core.dependencies import get_current_user
+from app.models.security import SupabaseAuthUser
 
 logger = logging.getLogger(__name__)
 

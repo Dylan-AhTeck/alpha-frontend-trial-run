@@ -1,9 +1,11 @@
 # type: ignore
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, validator
-from typing import Optional, List
 import logging
 import sys
+from typing import List, Optional
+
+from pydantic import validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     # Assistant UI Cloud (Public) - REQUIRED
@@ -13,8 +15,8 @@ class Settings(BaseSettings):
     # LangGraph Configuration - REQUIRED
     langgraph_api_url: str
     langgraph_api_key: Optional[str] = None
-    langgraph_assistant_id: str = "agent"  # Has sensible default
-    langgraph_model_name: str = "gpt-4o-mini"  # Has sensible default
+    langgraph_assistant_id: str
+    langgraph_model_name: str
     
     # Supabase Configuration - REQUIRED
     supabase_url: str
@@ -24,48 +26,49 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str
     
     # Server Configuration - Operational defaults OK
-    server_host: str = "127.0.0.1"
-    server_port: int = 8000
-    server_reload: bool = False
+    server_host: str
+    server_port: int
+    server_reload: bool
     
     # CORS Configuration - Operational defaults OK
-    cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    cors_allow_credentials: bool = True
-    cors_allow_methods: List[str] = ["*"]
-    cors_allow_headers: List[str] = ["*"]
+    cors_origins: List[str]
+    cors_allow_credentials: bool
+    cors_allow_methods: List[str]
+    cors_allow_headers: List[str]
     
     # API Configuration - Operational defaults OK
-    api_timeout: int = 30
-    default_thread_limit: int = 50
-    content_preview_length: int = 50
+    api_timeout: int
+    default_thread_limit: int
+    content_preview_length: int
     
     # Environment & Logging - Operational defaults OK
-    environment: str = "development"
-    log_level: str = "INFO"
+    environment: str
+    log_level: str
     
     # HTTP Status Codes - Operational defaults OK
-    default_error_status_code: int = 500
+    default_error_status_code: int
     
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="",
-        case_sensitive=False
+        case_sensitive=False,
+        env_parse_none_str="None"
     )
     
     @validator('cors_origins', pre=True)
-    def parse_cors_origins(cls, v):
+    def parse_cors_origins(cls, v):  # cls is required by Pydantic
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(',')]
         return v
     
     @validator('cors_allow_methods', pre=True)
-    def parse_cors_methods(cls, v):
+    def parse_cors_methods(cls, v):  # cls is required by Pydantic
         if isinstance(v, str):
             return [method.strip() for method in v.split(',')]
         return v
     
     @validator('cors_allow_headers', pre=True)
-    def parse_cors_headers(cls, v):
+    def parse_cors_headers(cls, v):  # cls is required by Pydantic
         if isinstance(v, str):
             return [header.strip() for header in v.split(',')]
         return v

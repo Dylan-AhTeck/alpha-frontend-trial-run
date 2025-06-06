@@ -22,8 +22,8 @@ import {
 import { cn } from "@/shared/utils/utils";
 
 import { Button } from "@/shared/components/ui/button";
-import { TooltipIconButton } from "@/features/chat/components/tooltip-icon-button";
-import { MarkdownText } from "@/features/chat/components/markdown-text";
+import { TooltipIconButton } from "./TooltipIconButton";
+import { MarkdownText } from "./MarkdownText";
 
 export const Thread: FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
