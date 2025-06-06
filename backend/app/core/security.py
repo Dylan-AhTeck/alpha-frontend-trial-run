@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 
 import logging
 from app.core.config import settings
+from app.core.exceptions import ConfigurationError, AuthenticationError
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def verify_jwt_token(token: str) -> SupabaseAuthUser:
     """
     try:
         if not settings.supabase_jwt_secret:
-            raise ValueError("SUPABASE_JWT_SECRET not configured")
+            raise ConfigurationError("SUPABASE_JWT_SECRET not configured", config_key="supabase_jwt_secret")
             
         # Decode and verify token using JWT secret
         payload = jwt.decode(
@@ -63,8 +64,9 @@ def verify_jwt_token(token: str) -> SupabaseAuthUser:
             headers={"WWW-Authenticate": "Bearer"},
         )
     except Exception as e:
+        error = AuthenticationError(f"Token validation failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token validation failed: {str(e)}",
+            status_code=error.status_code,
+            detail=error.message,
             headers={"WWW-Authenticate": "Bearer"},
         ) 

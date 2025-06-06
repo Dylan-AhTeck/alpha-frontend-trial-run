@@ -1,0 +1,190 @@
+ # Backend Refactoring & Code Cleanup Project
+
+<context>
+# Overview  
+This project focuses on refactoring, reorganizing, and cleaning up the existing FastAPI backend codebase to follow modern engineering best practices, improve maintainability, and enhance production readiness. The backend currently serves as a proxy between the frontend and external services (Assistant UI Cloud, LangGraph, Supabase) with authentication capabilities.
+
+# Current State Analysis
+The backend has several areas requiring improvement:
+- Inconsistent error handling and logging patterns
+- Generic exception handling instead of specific error types
+- Print statements mixed with proper logging
+- Global singleton services instead of dependency injection
+- Hardcoded values and magic strings
+- Missing input validation and security headers
+- Legacy/duplicate model classes
+- No testing infrastructure
+- Missing production readiness features
+
+# Core Objectives
+- Implement consistent error handling and logging throughout the codebase
+- Replace global singletons with proper dependency injection
+- Add comprehensive input validation and security measures
+- Remove code duplication and unused/legacy code
+- Establish testing infrastructure and documentation standards
+- Implement production-ready features (health checks, metrics, monitoring)
+</context>
+
+<PRD>
+# Technical Architecture Improvements
+
+## Code Organization & Structure
+- Implement proper dependency injection pattern for all services
+- Consolidate duplicate/legacy model classes (ThreadSummary, ThreadDetails)
+- Remove unused code and dead imports
+- Standardize import organization and file structure
+
+## Error Handling & Logging
+- Replace all print() statements with structured logging
+- Create custom exception classes for different error types
+- Implement global exception handler with proper error response models
+- Add consistent error response format across all endpoints
+
+## Security & Validation
+- Add comprehensive input validation for all endpoints
+- Implement security headers middleware
+- Add rate limiting capabilities
+- Validate all request models with proper error messages
+- Add request size limits and timeout configurations
+
+## Configuration Management
+- Centralize all configuration with proper environment validation
+- Remove hardcoded values (model names, URLs, limits)
+- Add configuration validation at startup
+- Implement proper secrets management patterns
+
+
+
+# Development Roadmap
+
+## Phase 1: Foundation Cleanup (Critical Issues)
+- Replace all print statements with proper logging
+- Fix generic exception handling with specific error types
+- Remove hardcoded values and implement proper configuration
+- Clean up unused imports and dead code
+
+## Phase 2: Architecture Improvements (Core Refactoring)
+- Implement dependency injection for all services
+- Consolidate duplicate model classes and remove legacy code
+- Add comprehensive input validation
+- Create custom exception classes and global error handler
+
+## Phase 3: Security & Validation (Production Safety)
+- Add security headers middleware
+- Implement rate limiting
+- Add comprehensive request validation
+- Implement proper timeout and size limits
+
+## Phase 4: Documentation & Standards (Maintainability)
+- Add comprehensive API documentation
+- Create development setup guides
+- Document coding standards and patterns
+- Add contribution guidelines
+
+# Logical Dependency Chain
+
+## Foundation First (Phase 1)
+Must be completed first as it affects all other development:
+- Logging standardization enables better debugging
+- Configuration cleanup prevents environment issues
+- Exception handling fixes enable proper error tracking
+
+## Architecture Before Features (Phase 2)
+Core architectural improvements before adding new functionality:
+- Dependency injection enables better testing
+- Model consolidation prevents confusion
+- Input validation prevents security issues
+
+## Security Before Deployment (Phase 3)
+Security measures must be in place before production:
+- Rate limiting prevents abuse
+- Security headers protect against attacks
+- Validation prevents injection attacks
+
+## Documentation Last (Phase 4)
+Final documentation enables maintenance:
+- API documentation enables usage
+- Development guides enable onboarding
+- Standards enable consistency
+
+# Specific Technical Requirements
+
+## Code Quality Standards
+- Use Python type hints throughout
+- Follow PEP 8 coding standards
+- Implement proper docstring documentation
+- Use consistent naming conventions
+- Remove all TODO comments by implementing or documenting
+
+## Error Handling Patterns
+- Create specific exception classes (ValidationError, AuthenticationError, ExternalServiceError)
+- Implement proper HTTP status codes for different error types
+- Add correlation IDs for request tracking
+- Include proper error context in responses
+
+## Security Implementation
+- Add CORS configuration for production
+- Implement request validation middleware
+- Add authentication rate limiting
+- Include security headers (HSTS, CSP, etc.)
+- Validate all external API interactions
+
+
+
+# Risks and Mitigations
+
+## Technical Challenges
+- **Risk**: Breaking existing functionality during refactoring
+- **Mitigation**: Implement comprehensive testing before refactoring, use feature flags for gradual rollout
+
+- **Risk**: Configuration changes affecting deployment
+- **Mitigation**: Maintain backward compatibility, document all configuration changes
+
+## Resource Constraints
+- **Risk**: Large scope affecting timeline
+- **Mitigation**: Prioritize phases by impact, allow for incremental deployment
+
+- **Risk**: External service dependencies limiting testing
+- **Mitigation**: Implement proper mocking and use test environments
+
+# Success Criteria
+
+## Code Quality Metrics
+- Zero print statements in production code
+- All exceptions are specific types with proper handling
+- 100% type hint coverage
+- All configuration externalized from code
+
+## Security Compliance
+- All endpoints have proper input validation
+- Security headers implemented on all responses
+- Rate limiting functional on all public endpoints
+- No hardcoded secrets in codebase
+
+
+
+# Appendix
+
+## Current File Structure
+```
+backend/app/
+├── api/           # API route handlers
+├── core/          # Core functionality (config, security, dependencies)
+├── models/        # Pydantic models
+├── services/      # Business logic services
+└── main.py        # Application entry point
+```
+
+## Key Files Requiring Attention
+- `core/config.py` - Configuration management
+- `core/security.py` - Authentication and security
+- `services/*.py` - All service files (logging, error handling)
+- `api/*.py` - All API route files (validation, error handling)
+- `models/*.py` - Model consolidation and cleanup
+
+## External Dependencies
+- FastAPI framework
+- Supabase (authentication and database)
+- LangGraph (AI agent processing)
+- Assistant UI Cloud (thread management)
+- Pydantic (data validation)

@@ -6,7 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def require_admin(current_user: SupabaseAuthUser = Depends(get_current_user)) -> Dict[str, Any]:
+async def require_admin(current_user: SupabaseAuthUser = Depends(get_current_user)) -> SupabaseAuthUser:
     """
     Dependency that ensures user has admin role in JWT.
     
@@ -19,7 +19,7 @@ async def require_admin(current_user: SupabaseAuthUser = Depends(get_current_use
     Raises:
         HTTPException: 403 if user is not admin
     """
-    user_role = current_user.role
+    user_role = current_user.user_role
     logger.info(f"[ADMIN_CHECK] User role: {user_role}")
     
     if user_role != "admin":
@@ -29,5 +29,5 @@ async def require_admin(current_user: SupabaseAuthUser = Depends(get_current_use
             detail="Admin access required"
         )
     
-    logger.info(f"[ADMIN_GRANTED] Admin access granted to user: {current_user.get('email', 'unknown')}")
+    logger.info(f"[ADMIN_GRANTED] Admin access granted to user: {current_user.email}")
     return current_user 

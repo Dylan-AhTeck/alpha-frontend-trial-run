@@ -4,6 +4,7 @@ import logging
 from app.models.admin import Thread, ThreadSummary, ThreadDetails, UserSummary, MessageResponse, AdminStatsResponse
 from app.core.config import settings
 from app.services.langgraph_client import langgraph_client
+from app.core.exceptions import ExternalServiceError, InternalServerError
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class AdminService:
             logger.info("[ADMIN] Fetching all user threads via LangGraph client")
             
             # Use the centralized client method instead of direct HTTP calls
-            threads_data = await langgraph_client.search_threads(limit=50)
+            threads_data = await langgraph_client.search_threads()
             
             logger.info(f"[ADMIN] Retrieved {len(threads_data)} threads from LangGraph client")
             
@@ -59,7 +60,7 @@ class AdminService:
                     if messages:
                         for msg in messages:
                             if msg.role == "user":
-                                title = msg.content[:50] + ("..." if len(msg.content) > 50 else "")
+                                title = msg.content[:settings.content_preview_length] + ("..." if len(msg.content) > settings.content_preview_length else "")
                                 break
                     
                     # Extract user information from metadata
@@ -85,6 +86,7 @@ class AdminService:
                     
                 except Exception as e:
                     logger.error(f"[ADMIN] Error processing thread {thread_data.get('thread_id', 'unknown')}: {e}")
+                    # Continue processing other threads even if one fails
                     continue
             
             logger.info(f"[ADMIN] Successfully processed {len(threads)} threads with full message data")
@@ -92,7 +94,10 @@ class AdminService:
             
         except Exception as e:
             logger.error(f"[ADMIN] Error fetching user threads: {e}")
-            return []
+            raise ExternalServiceError(
+                message=f"Failed to fetch user threads: {e}",
+                service_name="langgraph"
+            )
 
     async def get_thread_details(self, thread_id: str) -> Optional[ThreadDetails]:
         """
@@ -133,7 +138,7 @@ class AdminService:
             if messages:
                 for msg in messages:
                     if msg.role == "user":
-                        title = msg.content[:50] + ("..." if len(msg.content) > 50 else "")
+                        title = msg.content[:settings.content_preview_length] + ("..." if len(msg.content) > settings.content_preview_length else "")
                         break
             
             thread_details = ThreadDetails(
@@ -149,7 +154,11 @@ class AdminService:
             
         except Exception as e:
             logger.error(f"[ADMIN] Error getting thread details for {thread_id}: {e}")
-            return None
+            raise ExternalServiceError(
+                message=f"Failed to get thread details for {thread_id}: {e}",
+                service_name="langgraph",
+                context={"thread_id": thread_id}
+            )
 
     async def delete_thread(self, thread_id: str, admin_user_id: str = "admin") -> bool:
         """
@@ -167,7 +176,11 @@ class AdminService:
             
         except Exception as e:
             logger.error(f"[ADMIN] Error deleting thread {thread_id}: {e}")
-            return False
+            raise ExternalServiceError(
+                message=f"Failed to delete thread {thread_id}: {e}",
+                service_name="langgraph",
+                context={"thread_id": thread_id, "admin_user_id": admin_user_id}
+            )
 
 # Create singleton instance
 admin_service = AdminService() 

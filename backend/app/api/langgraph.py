@@ -3,9 +3,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import json
+import logging
 
 from app.services.langgraph_client import langgraph_client
+from app.core.exceptions import BaseAppException, InternalServerError
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["langgraph"])
 
 class CreateThreadRequest(BaseModel):
@@ -24,20 +27,27 @@ async def create_thread(request: CreateThreadRequest):
     try:
         result = await langgraph_client.create_thread(request.user_id, request.user_email)
         return CreateThreadResponse(thread_id=result["thread_id"])
+    except BaseAppException as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error = InternalServerError(f"Failed to create thread: {e}")
+        raise HTTPException(status_code=error.status_code, detail=error.message)
 
 @router.get("/threads/{thread_id}")
 async def get_thread_state(thread_id: str):
     """Get thread state"""
-    print(f"[DEBUG] Getting thread state for thread_id: {thread_id}")
+    logger.debug("Getting thread state", extra={"thread_id": thread_id})
     try:
         state = await langgraph_client.get_thread_state(thread_id)
-        print(f"[DEBUG] Successfully retrieved state for thread_id: {thread_id}")
+        logger.debug("Successfully retrieved thread state", extra={"thread_id": thread_id})
         return state
+    except BaseAppException as e:
+        logger.error("Failed to get thread state", extra={"thread_id": thread_id, "error": str(e)})
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
-        print(f"[ERROR] Failed to get thread state for {thread_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to get thread state", extra={"thread_id": thread_id, "error": str(e)})
+        error = InternalServerError(f"Failed to get thread state: {e}")
+        raise HTTPException(status_code=error.status_code, detail=error.message)
 
 
 

@@ -2,6 +2,7 @@ from typing import Optional
 import logging
 from supabase import create_client, Client
 from app.core.config import settings
+from app.core.exceptions import ConfigurationError, ExternalServiceError, DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -9,11 +10,11 @@ class SupabaseClient:
     def __init__(self):
         # Validate required configuration
         if not settings.supabase_url:
-            raise ValueError("SUPABASE_URL is required but not configured")
+            raise ConfigurationError("SUPABASE_URL is required but not configured", config_key="supabase_url")
         if not settings.supabase_anon_key:
-            raise ValueError("SUPABASE_ANON_KEY is required but not configured")
+            raise ConfigurationError("SUPABASE_ANON_KEY is required but not configured", config_key="supabase_anon_key")
         if not settings.supabase_service_role_key:
-            raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required but not configured")
+            raise ConfigurationError("SUPABASE_SERVICE_ROLE_KEY is required but not configured", config_key="supabase_service_role_key")
             
         try:
             # Initialize regular client with anon key
@@ -32,7 +33,10 @@ class SupabaseClient:
                 
         except Exception as e:
             logger.error(f"Failed to initialize Supabase clients: {e}")
-            raise
+            raise ExternalServiceError(
+                message=f"Failed to initialize Supabase clients: {e}",
+                service_name="supabase"
+            )
 
     async def check_beta_user(self, email: str) -> bool:
         """Check if email is in beta list - uses admin client for security"""
@@ -43,7 +47,12 @@ class SupabaseClient:
             return is_beta
         except Exception as e:
             logger.error(f"Error checking beta user {email}: {e}")
-            raise
+            raise DatabaseError(
+                message=f"Error checking beta user {email}: {e}",
+                operation="select",
+                table="beta_emails",
+                context={"email": email}
+            )
 
     async def get_user_status(self, email: str) -> dict:
         """Get detailed user status including verification state"""
@@ -94,7 +103,12 @@ class SupabaseClient:
             return True
         except Exception as e:
             logger.error(f"Error storing beta request for {email}: {e}")
-            raise
+            raise DatabaseError(
+                message=f"Error storing beta request for {email}: {e}",
+                operation="insert",
+                table="beta_requests",
+                context={"email": email}
+            )
 
     def get_client(self) -> Client:
         """Get the regular Supabase client instance"""

@@ -1,8 +1,12 @@
 from typing import AsyncGenerator, Dict, Any, List, Optional
 import json
+import logging
 
 from langgraph_sdk import get_client
 from app.core.config import settings
+from app.core.exceptions import ExternalServiceError
+
+logger = logging.getLogger(__name__)
 
 class LangGraphClient:
     def __init__(self):
@@ -10,7 +14,7 @@ class LangGraphClient:
         if settings.langgraph_api_key:
             # TODO: Add API key support when available
             pass
-        self.assistant_id = "agent"  # Matches our LangGraph server configuration
+        self.assistant_id = settings.langgraph_assistant_id
     
     async def create_thread(self, user_id: str, user_email: str) -> Dict[str, Any]:
         """Create a new thread in LangGraph with user metadata"""
@@ -27,27 +31,38 @@ class LangGraphClient:
         try:
             return await self.client.threads.get_state(thread_id=thread_id)
         except Exception as e:
-            raise Exception(f"Failed to get thread state: {e}")
+            raise ExternalServiceError(
+                message=f"Failed to get thread state: {e}",
+                service_name="langgraph",
+                context={"thread_id": thread_id}
+            )
     
     async def delete_thread(self, thread_id: str) -> None:
         """Delete a thread"""
         try:
             await self.client.threads.delete(thread_id=thread_id)
-            print(f"[DEBUG] Deleted thread: {thread_id}")
+            logger.debug("Thread deleted successfully", extra={"thread_id": thread_id})
         except Exception as e:
-            raise Exception(f"Failed to delete thread: {e}")
+            raise ExternalServiceError(
+                message=f"Failed to delete thread: {e}",
+                service_name="langgraph",
+                context={"thread_id": thread_id}
+            )
     
-    async def search_threads(self, limit: int = 50, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    async def search_threads(self, limit: Optional[int] = None, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Search for threads with optional metadata filtering
         
         Args:
-            limit: Maximum number of threads to return
+            limit: Maximum number of threads to return (defaults to configured default)
             metadata_filter: Optional metadata filter (empty dict = all threads)
             
         Returns:
             List of thread data dictionaries from LangGraph
         """
+        if limit is None:
+            limit = settings.default_thread_limit
+            
         try:
             # Use the SDK's search method if available, otherwise fall back to direct client call
             search_params = {
@@ -62,7 +77,11 @@ class LangGraphClient:
             return threads_data if isinstance(threads_data, list) else []
             
         except Exception as e:
-            raise Exception(f"Failed to search threads: {e}")
+            raise ExternalServiceError(
+                message=f"Failed to search threads: {e}",
+                service_name="langgraph",
+                context={"limit": limit, "metadata_filter": metadata_filter}
+            )
     
     async def stream_messages(
         self, 
@@ -75,11 +94,11 @@ class LangGraphClient:
         input_data = {"messages": self._convert_messages(messages)}
         config = {
             "configurable": {
-                "model_name": "gpt-4o-mini",
+                "model_name": settings.langgraph_model_name,
             }
         }
         
-        print(f"[DEBUG] Streaming to thread_id={thread_id}")
+        logger.debug("Starting message stream", extra={"thread_id": thread_id})
         
         # Stream to the thread
         async for event in self.client.runs.stream(

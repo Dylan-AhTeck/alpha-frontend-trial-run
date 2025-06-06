@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Dict, Any
 from app.core.dependencies import get_current_user
 from app.core.config import settings
+from app.core.exceptions import BaseAppException, ValidationError, ExternalServiceError, ConfigurationError, InternalServerError
 import requests
 import logging
 import traceback
@@ -22,10 +23,8 @@ async def create_assistant_token(current_user: SupabaseAuthUser = Depends(get_cu
         user_id = current_user.id
         if not user_id:
             logger.error(f"[ERROR] No user ID found in JWT payload. Available keys: {list(current_user.keys())}")
-            raise HTTPException(
-                status_code=400, 
-                detail="Invalid JWT: no user ID found"
-            )
+            error = ValidationError("Invalid JWT: no user ID found", field="user_id")
+            raise HTTPException(status_code=error.status_code, detail=error.message)
             
         logger.info(f"[DEBUG] Creating assistant token for user: {user_id}")
         
@@ -36,10 +35,8 @@ async def create_assistant_token(current_user: SupabaseAuthUser = Depends(get_cu
         
         if not assistant_api_key:
             logger.error("[ERROR] Assistant API key not configured")
-            raise HTTPException(
-                status_code=500, 
-                detail="Assistant API key not configured"
-            )
+            error = ConfigurationError("Assistant API key not configured", config_key="assistant_api_key")
+            raise HTTPException(status_code=error.status_code, detail=error.message)
         
         # Create assistant-ui token using their API
         # Using the workspace pattern to scope threads to the user
@@ -60,7 +57,7 @@ async def create_assistant_token(current_user: SupabaseAuthUser = Depends(get_cu
             response = requests.post(
                 "https://backend.assistant-api.com/v1/auth/tokens",
                 headers=headers,
-                timeout=30
+                timeout=settings.api_timeout
             )
             
             logger.info(f"[DEBUG] Response status code: {response.status_code}")
@@ -106,11 +103,12 @@ async def create_assistant_token(current_user: SupabaseAuthUser = Depends(get_cu
         
     except HTTPException:
         raise
+    except BaseAppException as e:
+        logger.error(f"[ERROR] Application error creating assistant token: {e}")
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         logger.error(f"[ERROR] Unexpected error creating assistant token: {str(e)}")
         logger.error(f"[ERROR] Exception type: {type(e).__name__}")
         logger.error(f"[ERROR] Full traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error while creating assistant token: {str(e)}"
-        ) 
+        error = InternalServerError(f"Internal server error while creating assistant token: {str(e)}")
+        raise HTTPException(status_code=error.status_code, detail=error.message) 

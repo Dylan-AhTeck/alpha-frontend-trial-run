@@ -1,11 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+import logging
+import traceback
+from datetime import datetime
+import uuid
 
 from app.api.langgraph import router as langgraph_router
 from app.api.auth import router as auth_router
 from app.api.assistant import router as assistant_router
 from app.api.admin import router as admin_router
 from app.core.config import settings
+from app.core.exceptions import BaseAppException, InternalServerError
+from app.models.error import ErrorResponse, ErrorDetail
 
 # Create FastAPI app
 app = FastAPI(
@@ -14,13 +23,179 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Configure logger for exception handlers
+logger = logging.getLogger(__name__)
+
+
+# Global Exception Handlers
+
+@app.exception_handler(BaseAppException)
+async def custom_exception_handler(request: Request, exc: BaseAppException) -> JSONResponse:
+    """
+    Handle custom application exceptions with structured error responses.
+    
+    This handler catches all custom exceptions that inherit from BaseAppException
+    and returns consistent error responses with proper status codes.
+    """
+    logger.error(
+        f"Application exception occurred: {exc.error_code}",
+        extra={
+            "correlation_id": exc.correlation_id,
+            "path": str(request.url),
+            "method": request.method,
+            "status_code": exc.status_code,
+            "error_code": exc.error_code,
+            "context": exc.context
+        }
+    )
+    
+    error_response = ErrorResponse(
+        error=exc.error_code,
+        message=exc.message,
+        correlation_id=exc.correlation_id,
+        timestamp=exc.timestamp,
+        status_code=exc.status_code,
+        details=exc.context
+    )
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response.model_dump()
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """
+    Handle FastAPI/Pydantic validation errors with detailed field-level error information.
+    
+    This handler catches validation errors from request parsing and provides
+    detailed information about which fields failed validation.
+    """
+    correlation_id = str(uuid.uuid4())
+    
+    # Convert Pydantic validation errors to our ErrorDetail format
+    validation_errors = []
+    for error in exc.errors():
+        field_path = " -> ".join(str(loc) for loc in error["loc"]) if error["loc"] else None
+        validation_errors.append(ErrorDetail(
+            field=field_path,
+            message=error["msg"],
+            code=error["type"]
+        ))
+    
+    logger.warning(
+        f"Validation error occurred",
+        extra={
+            "correlation_id": correlation_id,
+            "path": str(request.url),
+            "method": request.method,
+            "validation_errors": [
+                {"field": err.field, "message": err.message, "code": err.code}
+                for err in validation_errors
+            ]
+        }
+    )
+    
+    error_response = ErrorResponse(
+        error="VALIDATION_ERROR",
+        message="Request validation failed",
+        correlation_id=correlation_id,
+        timestamp=datetime.utcnow().isoformat(),
+        status_code=422,
+        validation_errors=validation_errors
+    )
+    
+    return JSONResponse(
+        status_code=422,
+        content=error_response.model_dump()
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """
+    Handle FastAPI HTTPExceptions with consistent error formatting.
+    
+    This ensures that even manually raised HTTPExceptions follow our
+    standardized error response format.
+    """
+    correlation_id = str(uuid.uuid4())
+    
+    logger.warning(
+        f"HTTP exception occurred",
+        extra={
+            "correlation_id": correlation_id,
+            "path": str(request.url),
+            "method": request.method,
+            "status_code": exc.status_code,
+            "detail": str(exc.detail)
+        }
+    )
+    
+    error_response = ErrorResponse(
+        error="HTTP_ERROR",
+        message=str(exc.detail),
+        correlation_id=correlation_id,
+        timestamp=datetime.utcnow().isoformat(),
+        status_code=exc.status_code
+    )
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response.model_dump()
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Fallback handler for any unhandled exceptions.
+    
+    This is the last line of defense to ensure that no unhandled exceptions
+    leak sensitive information to clients. All unexpected errors are logged
+    with full details but return a generic error response.
+    """
+    correlation_id = str(uuid.uuid4())
+    
+    # Log the full exception details for debugging
+    logger.error(
+        f"Unhandled exception occurred: {type(exc).__name__}",
+        extra={
+            "correlation_id": correlation_id,
+            "path": str(request.url),
+            "method": request.method,
+            "exception_type": type(exc).__name__,
+            "traceback": traceback.format_exc()
+        }
+    )
+    
+    # Create a generic internal server error
+    internal_error = InternalServerError(
+        message="An unexpected error occurred",
+        correlation_id=correlation_id
+    )
+    
+    error_response = ErrorResponse(
+        error=internal_error.error_code,
+        message=internal_error.message,
+        correlation_id=internal_error.correlation_id,
+        timestamp=internal_error.timestamp,
+        status_code=internal_error.status_code
+    )
+    
+    return JSONResponse(
+        status_code=internal_error.status_code,
+        content=error_response.model_dump()
+    )
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
 )
 
 # Include routers
